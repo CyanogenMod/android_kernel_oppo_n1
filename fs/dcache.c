@@ -2542,11 +2542,6 @@ static int prepend_path(const struct path *path,
 	if (!error && !slash)
 		error = prepend(buffer, buflen, "/", 1);
 
-<<<<<<< HEAD
-=======
-out:
-	br_read_unlock(&vfsmount_lock);
->>>>>>> f875ea3... brlocks/lglocks: API cleanups
 	return error;
 
 global_root:
@@ -2562,7 +2557,7 @@ global_root:
 	if (!slash)
 		error = prepend(buffer, buflen, "/", 1);
 	if (!error)
-		error = real_mount(vfsmnt)->mnt_ns ? 1 : 2;
+		error = is_mounted(vfsmnt) ? 1 : 2;
 	return error;
 }
 
