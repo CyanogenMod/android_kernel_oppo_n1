@@ -2449,12 +2449,15 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
 		mdp_free_splash_buffer(mfd);
 
-/* OPPO 2012-11-30 huyu modify for boot LOGO bluescreen*/
-#ifdef CONFIG_MACH_OPPO
-	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
-		mdp_free_splash_buffer(mfd);
-#endif
-/* OPPO 2012-11-30 huyu modify for boot LOGO bluescreen*/
+	/* set backlight in recovery mode */
+	pdata = (struct msm_fb_panel_data *)mfd->pdev->
+		dev.platform_data;
+	if ((pdata) && (pdata->set_recovery_backlight)) {
+		down(&mfd->sem);
+		pdata->set_recovery_backlight(mfd);
+		up(&mfd->sem);
+	}
+
 	++mfd->panel_info.frame_count;
 	return 0;
 }
@@ -2465,6 +2468,7 @@ static void msm_fb_commit_wq_handler(struct work_struct *work)
 	struct fb_var_screeninfo *var;
 	struct fb_info *info;
 	struct msm_fb_backup_type *fb_backup;
+	struct msm_fb_panel_data *pdata;
 
 	mfd = container_of(work, struct msm_fb_data_type, commit_work);
 	fb_backup = (struct msm_fb_backup_type *)mfd->msm_fb_backup;
@@ -3659,12 +3663,7 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 	mutex_unlock(&msm_fb_notify_update_sem);
 
 	ret = mdp4_overlay_play(info, &req);
-/* OPPO 2012-11-30 huyu modify for boot LOGO bluescreen*/
-#ifdef CONFIG_MACH_OPPO
-	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
-		mdp_free_splash_buffer(mfd);
-#endif
-/* OPPO 2012-11-30 huyu modify for boot LOGO bluescreen*/
+
 	return ret;
 }
 
@@ -4076,8 +4075,7 @@ static int msmfb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 	if (buf_sync->flags & MDP_BUF_SYNC_FLAG_WAIT) {
 		msm_fb_wait_for_fence(mfd);
 	}
-	if ((mfd->panel.type == MIPI_CMD_PANEL) ||
-		(mfd->panel.type == WRITEBACK_PANEL))
+	if (mfd->panel.type == WRITEBACK_PANEL)
 		threshold = 1;
 	else
 		threshold = 2;
