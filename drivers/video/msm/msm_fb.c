@@ -1099,19 +1099,10 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 {
 	struct msm_fb_panel_data *pdata;
 	__u32 temp = bkl_lvl;
-/* OPPO 2012-12-26 Van modify begin for boot mode */
-    //if (!mfd->panel_power_on || !bl_updated) {
-/* OPPO 2013-09-18 gousj Modify begin for recovery mode */
-#ifndef CONFIG_MACH_OPPO
-    if ((get_boot_mode()==MSM_BOOT_MODE__NORMAL)&&(!mfd->panel_power_on || !bl_updated)) {
-#else
-    if (((get_boot_mode()==MSM_BOOT_MODE__NORMAL) || (get_boot_mode()==MSM_BOOT_MODE__RECOVERY)) && (!mfd->panel_power_on || !bl_updated)) {
-#endif
-/* OPPO 2013-09-18 gousj Modify end */
-		unset_bl_level = bkl_lvl;
+
+	unset_bl_level = bkl_lvl;
+	if (!mfd->panel_power_on || !bl_updated) {
 		return;
-	} else {
-		unset_bl_level = 0;
 	}
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
