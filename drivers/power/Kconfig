@@ -443,4 +443,11 @@ config AB8500_BATTERY_THERM_ON_BATCTRL
 	  Say Y to enable battery temperature measurements using
 	  thermistor connected on BATCTRL ADC.
 
+config CHARGER_SMB358
+	tristate "Summit Microelectronics SMB358 Battery Charger"
+	depends on I2C
+	help
+	  Say Y to include support for Summit Microelectronics SMB358
+	  Battery Charger.
+
 endif # POWER_SUPPLY
