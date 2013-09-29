@@ -60,3 +60,4 @@ obj-$(CONFIG_LTC4088_CHARGER)	+= ltc4088-charger.o
 obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
 obj-$(CONFIG_BATTERY_BCL)	+= battery_current_limit.o
 obj-$(CONFIG_CHARGER_SMB358)	+= smb358_charger.o
+obj-$(CONFIG_BATTERY_BQ27541_OPPO)	+= oppo_bq27541_fuelgauge.o

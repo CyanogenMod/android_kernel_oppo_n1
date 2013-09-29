@@ -450,4 +450,12 @@ config CHARGER_SMB358
 	  Say Y to include support for Summit Microelectronics SMB358
 	  Battery Charger.
 
+config BATTERY_BQ27541_OPPO
+	tristate "BQ27541 battery driver (Oppo version)"
+	depends on I2C
+	default n
+	help
+	  Say Y here to enable support for batteries with BQ27541 (I2C) chips.
+	  This driver is for the Oppo variant.
+
 endif # POWER_SUPPLY
