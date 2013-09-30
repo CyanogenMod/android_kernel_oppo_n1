@@ -90,7 +90,7 @@
 #include "smd_private.h"
 #include "sysmon.h"
 
-#include <linux/nfc/pn544.h>
+#include <linux/nfc/pn544-oppo.h>
 #include <linux/pcb_version.h>
 #include <linux/persistent_ram.h>
 #include <linux/power/smb358_charger.h>
@@ -3006,6 +3006,114 @@ static void __init apq8064_init_dsps(void)
 	platform_device_register(&msm_dsps_device_8064);
 }
 
+static struct regulator *ldol21 = NULL;
+static void sensor_i2c_power_init(void) {
+	ldol21 = regulator_get(NULL, "8921_l21");
+	if (IS_ERR(ldol21)){
+		pr_err("%s: VREG ldol21 get failed\n", __func__);
+		ldol21 = NULL;
+	}
+	if (regulator_set_voltage(ldol21, 1800000, 1800000)) {
+		pr_err("%s: VREG ldol21 set voltage failed\n", __func__);
+	}
+	if (regulator_enable(ldol21)) {
+		pr_err("%s: VREG ldol21 enable failed\n", __func__);
+	}
+}
+
+#define PN544_VEN	GPIO_CFG(APQ_NFC_VEN_GPIO, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA)
+#define PN544_VEN_N1	GPIO_CFG(APQ_NFC_VEN_GPIO_N1, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA)
+#define PN544_FIRM	GPIO_CFG(APQ_NFC_FIRM_GPIO, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define PN544_FIRM_N1	GPIO_CFG(APQ_NFC_FIRM_GPIO_N1, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define PN544_IRQ	GPIO_CFG(APQ_NFC_IRQ_GPIO, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+
+struct pn544_i2c_platform_data nfc_pdata  = {
+	.irq_gpio = APQ_NFC_IRQ_GPIO,
+	.ven_gpio = APQ_NFC_VEN_GPIO,
+	.firm_gpio = APQ_NFC_FIRM_GPIO,
+};
+
+static struct i2c_board_info nfc_board_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("pn544", 0x28),
+		.platform_data = &nfc_pdata,
+		.irq = MSM_GPIO_TO_INT(APQ_NFC_IRQ_GPIO),
+	},
+};
+
+static struct regulator *ldol23 = NULL;
+static void pn544_power_init(void)
+{
+	int ret = 0  ;
+
+	if (get_pcb_version() >= PCB_VERSION_EVT_N1) {
+		nfc_pdata.ven_gpio = APQ_NFC_VEN_GPIO_N1;
+		nfc_pdata.firm_gpio = APQ_NFC_FIRM_GPIO_N1;
+	}
+
+	//l23
+	ldol23 = regulator_get(NULL, "8921_l23");
+	if (IS_ERR(ldol23)) {
+		pr_err("%s: VREG ldol23 get failed\n", __func__);
+		ldol23 = NULL;
+		goto ldo123_get_failed;
+	}
+	if (regulator_set_voltage(ldol23, 1800000, 1800000)) {
+		pr_err("%s: VREG ldol23 set voltage failed\n",  __func__);
+		goto ldo123_get_failed;
+	}
+	if (regulator_enable(ldol23)) {
+		pr_err("%s: VREG ldol23 enable failed\n", __func__);
+		goto ldo123_get_failed;
+	}
+
+	//irq
+	ret = gpio_tlmm_config(PN544_IRQ, GPIO_CFG_ENABLE);
+	if (ret) {
+		printk(KERN_ERR "%s:gpio_tlmm_config(%#x)=%d\n",
+				__func__, PN544_IRQ, ret);
+	}
+
+	if (get_pcb_version() >= PCB_VERSION_EVT_N1) {
+		ret = gpio_tlmm_config(PN544_VEN_N1, GPIO_CFG_ENABLE);
+		if (ret) {
+			printk(KERN_ERR "%s:gpio_tlmm_config(%#x)=%d\n",
+					__func__, PN544_VEN_N1, ret);
+		}
+		gpio_set_value(APQ_NFC_VEN_GPIO_N1, 1);
+		msleep(100);
+		//firmware gpio
+		ret = gpio_tlmm_config(PN544_FIRM_N1, GPIO_CFG_ENABLE);
+		if (ret) {
+			printk(KERN_ERR "%s:gpio_tlmm_config(%#x)=%d\n",
+					__func__, PN544_FIRM_N1, ret);
+		}
+		gpio_set_value(APQ_NFC_FIRM_GPIO_N1, 0);
+	} else {
+		//ven
+		ret = gpio_tlmm_config(PN544_VEN, GPIO_CFG_ENABLE);
+		if (ret) {
+			printk(KERN_ERR "%s:gpio_tlmm_config(%#x)=%d\n",
+					__func__, PN544_VEN, ret);
+		}
+		gpio_set_value(APQ_NFC_VEN_GPIO, 1);
+		msleep(100);
+		//firmware gpio
+		ret = gpio_tlmm_config(PN544_FIRM, GPIO_CFG_ENABLE);
+		if (ret) {
+			printk(KERN_ERR "%s:gpio_tlmm_config(%#x)=%d\n",
+					__func__, PN544_FIRM, ret);
+		}
+		gpio_set_value(APQ_NFC_FIRM_GPIO, 0);
+	}
+
+	printk(KERN_ERR "%s:liuhd for nfc gpio---\n",__func__);
+	printk("nfc gpio , gpios=%d %d %d\n",
+			nfc_pdata.irq_gpio, nfc_pdata.ven_gpio, nfc_pdata.firm_gpio);
+ldo123_get_failed:
+	regulator_disable(ldol23);
+}
+
 #define I2C_SURF 1
 #define I2C_FFA  (1 << 1)
 #define I2C_RUMI (1 << 2)
@@ -3052,6 +3160,12 @@ static struct i2c_registry apq8064_i2c_devices[] __initdata = {
 		APQ_8064_GSBI1_QUP_I2C_BUS_ID,
 		synaptics_y8c20x66a_touch_info,
 		ARRAY_SIZE(synaptics_y8c20x66a_touch_info),
+	},
+	{
+		I2C_SURF | I2C_FFA | I2C_LIQUID | I2C_RUMI,
+		APQ_8064_GSBI1_QUP_I2C_BUS_ID,
+		nfc_board_info,
+		ARRAY_SIZE(nfc_board_info),
 	},
 	{
 		I2C_FFA | I2C_LIQUID,
@@ -3168,6 +3282,8 @@ static void __init register_i2c_devices(void)
 
 	touch_init_hw();
 	touchpad_init_hw();
+	pn544_power_init();
+	sensor_i2c_power_init();
 
 	/* Run the array and install devices as appropriate */
 	for (i = 0; i < ARRAY_SIZE(apq8064_i2c_devices); ++i) {
