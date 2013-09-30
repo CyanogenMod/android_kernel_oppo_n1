@@ -197,5 +197,8 @@ endif
 
 obj-$(CONFIG_MSM_VIDC_1080P) += vidc/
 obj-$(CONFIG_MSM_VIDC_720P) += vidc/
+
+obj-$(CONFIG_FB_MSM_MIPI_BACKLIGHT_LM3630) += lm3630_bl.o
+
 clean:
 	rm *.o .*cmd
