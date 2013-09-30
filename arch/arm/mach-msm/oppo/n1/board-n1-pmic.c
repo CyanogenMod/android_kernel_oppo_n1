@@ -115,8 +115,13 @@ struct pm8xxx_mpp_init {
 /* Initial PM8921 GPIO configurations */
 static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8921_GPIO_OUTPUT(14, 1, HIGH),	/* HDMI Mux Selector */
+
+	PM8921_GPIO_INPUT(26, PM_GPIO_PULL_UP_30),
+	PM8921_GPIO_INPUT(27, PM_GPIO_PULL_UP_30),
+	PM8921_GPIO_INPUT(28, PM_GPIO_PULL_UP_30),
+	PM8921_GPIO_INPUT(29, PM_GPIO_PULL_UP_30),
 	PM8921_GPIO_OUTPUT_BUFCONF(25, 0, LOW, CMOS), /* DISP_RESET_N */
-	PM8921_GPIO_OUTPUT_FUNC(26, 0, PM_GPIO_FUNC_2), /* Bl: Off, PWM mode */
+
 	PM8921_GPIO_OUTPUT_VIN(30, 1, PM_GPIO_VIN_VPH), /* SMB349 susp line */
 	PM8921_GPIO_OUTPUT_BUFCONF(36, 1, LOW, OPEN_DRAIN),
 	PM8921_GPIO_OUTPUT_FUNC(44, 0, PM_GPIO_FUNC_2),
@@ -181,10 +186,10 @@ static struct pm8xxx_gpio_init pm8921_mpq_gpios[] __initdata = {
 
 /* Initial PM8XXX MPP configurations */
 static struct pm8xxx_mpp_init pm8xxx_mpps[] __initdata = {
-	PM8921_MPP_INIT(3, D_OUTPUT, PM8921_MPP_DIG_LEVEL_VPH, DOUT_CTRL_LOW),
+	PM8921_MPP_INIT(3, D_INPUT, PM8921_MPP_DIG_LEVEL_S4, DIN_TO_INT),
 	/* External 5V regulator enable; shared by HDMI and USB_OTG switches. */
 	PM8921_MPP_INIT(7, D_OUTPUT, PM8921_MPP_DIG_LEVEL_VPH, DOUT_CTRL_LOW),
-	PM8921_MPP_INIT(8, D_OUTPUT, PM8921_MPP_DIG_LEVEL_S4, DOUT_CTRL_LOW),
+	PM8921_MPP_INIT(8, D_INPUT, PM8921_MPP_DIG_LEVEL_S4, DIN_TO_INT),
 	/*MPP9 is used to detect docking station connection/removal on Liquid*/
 	PM8921_MPP_INIT(9, D_INPUT, PM8921_MPP_DIG_LEVEL_S4, DIN_TO_INT),
 	/* PCIE_RESET_N */
@@ -268,7 +273,7 @@ static struct pm8xxx_misc_platform_data apq8064_pm8921_misc_pdata = {
 	.priority		= 0,
 };
 
-#define PM8921_LC_LED_MAX_CURRENT	12	/* I = 12mA */
+#define PM8921_LC_LED_MAX_CURRENT	14	/* I = 12mA */
 #define PM8921_LC_LED_LOW_CURRENT	1	/* I = 1mA */
 #define PM8XXX_LED_PWM_PERIOD		1000
 #define PM8XXX_LED_PWM_DUTY_MS		20
@@ -280,35 +285,18 @@ static struct pm8xxx_misc_platform_data apq8064_pm8921_misc_pdata = {
 
 static struct led_info pm8921_led_info[] = {
 	[0] = {
-		.name			= "led:red",
+		.name			= "button-backlight",
 		.default_trigger	= "ac-online",
+	},
+	[1] = {
+		.name			= "keyboard-backlight",
+		.default_trigger	= "default-off",
 	},
 };
 
 static struct led_platform_data pm8921_led_core_pdata = {
 	.num_leds = ARRAY_SIZE(pm8921_led_info),
 	.leds = pm8921_led_info,
-};
-
-static int pm8921_led0_pwm_duty_pcts[56] = {
-	1, 4, 8, 12, 16, 20, 24, 28, 32, 36,
-	40, 44, 46, 52, 56, 60, 64, 68, 72, 76,
-	80, 84, 88, 92, 96, 100, 100, 100, 98, 95,
-	92, 88, 84, 82, 78, 74, 70, 66, 62, 58,
-	58, 54, 50, 48, 42, 38, 34, 30, 26, 22,
-	14, 10, 6, 4, 1
-};
-
-/*
- * Note: There is a bug in LPG module that results in incorrect
- * behavior of pattern when LUT index 0 is used. So effectively
- * there are 63 usable LUT entries.
- */
-static struct pm8xxx_pwm_duty_cycles pm8921_led0_pwm_duty_cycles = {
-	.duty_pcts = (int *)&pm8921_led0_pwm_duty_pcts,
-	.num_duty_pcts = ARRAY_SIZE(pm8921_led0_pwm_duty_pcts),
-	.duty_ms = PM8XXX_LED_PWM_DUTY_MS,
-	.start_idx = 1,
 };
 
 static struct pm8xxx_led_config pm8921_led_configs[] = {
@@ -318,7 +306,13 @@ static struct pm8xxx_led_config pm8921_led_configs[] = {
 		.max_current = PM8921_LC_LED_MAX_CURRENT,
 		.pwm_channel = 5,
 		.pwm_period_us = PM8XXX_LED_PWM_PERIOD,
-		.pwm_duty_cycles = &pm8921_led0_pwm_duty_cycles,
+	},
+	[1] = {
+		.id = PM8XXX_ID_LED_KB_LIGHT,
+		.mode = PM8XXX_LED_MODE_MANUAL,
+		.max_current = 300,
+		.pwm_channel = -1,
+		.pwm_period_us = PM8XXX_LED_PWM_PERIOD,
 	},
 };
 
@@ -393,7 +387,7 @@ apq8064_pm8921_irq_pdata __devinitdata = {
 static struct pm8xxx_rtc_platform_data
 apq8064_pm8921_rtc_pdata = {
 	.rtc_write_enable       = false,
-	.rtc_alarm_powerup      = false,
+	.rtc_alarm_powerup      = true,
 };
 
 static int apq8064_pm8921_therm_mitigation[] = {
@@ -403,46 +397,58 @@ static int apq8064_pm8921_therm_mitigation[] = {
 	325,
 };
 
-#define MAX_VOLTAGE_MV          4200
+#define RSENSE_MOHM		20
+#define MAX_VOLTAGE_MV          4350
 #define CHG_TERM_MA		100
 static struct pm8921_charger_platform_data
 apq8064_pm8921_chg_pdata __devinitdata = {
-	.update_time		= 60000,
+	.update_time		= 6000,
 	.max_voltage		= MAX_VOLTAGE_MV,
 	.min_voltage		= 3200,
 	.uvd_thresh_voltage	= 4050,
+	.resume_voltage_delta	= 30,
 	.alarm_low_mv		= 3400,
 	.alarm_high_mv		= 4000,
-	.resume_voltage_delta	= 60,
 	.resume_charge_percent	= 99,
+	.normal_resume_voltage_delta = 30,
 	.term_current		= CHG_TERM_MA,
 	.cool_temp		= 10,
 	.warm_temp		= 45,
 	.temp_check_period	= 1,
-	.max_bat_chg_current	= 1100,
-	.cool_bat_chg_current	= 350,
-	.warm_bat_chg_current	= 350,
-	.cool_bat_voltage	= 4100,
-	.warm_bat_voltage	= 4100,
+	.max_bat_chg_current	= 1000,
+	.little_cold_bat_chg_current	= 225,
+	.cool_bat_chg_current	= 400,
+	.normal_dcp_chg_current	= 1050,
+	.mhl_chg_current	= 1000,
+	.nonstanard_mhl_chg_current	= 500,
+	.normal_sdp_chg_current	= 500,
+	.warm_bat_chg_current	= 400,
+	.little_cold_bat_voltage	= 4000,
+	.cool_bat_voltage	= 4300,
+	.normal_bat_voltage	= MAX_VOLTAGE_MV,
+	.warm_bat_voltage	= 4150,
+	.vin_min  = 4500,
+	.r_sense		= RSENSE_MOHM,
+
 	.thermal_mitigation	= apq8064_pm8921_therm_mitigation,
 	.thermal_levels		= ARRAY_SIZE(apq8064_pm8921_therm_mitigation),
-	.rconn_mohm		= 18,
+	.rconn_mohm		= 28,
 	.enable_tcxo_warmup_delay = true,
 };
 
 static struct pm8xxx_ccadc_platform_data
 apq8064_pm8xxx_ccadc_pdata = {
-	.r_sense_uohm		= 10000,
+	.r_sense_uohm		= RSENSE_MOHM * 1000,
 	.calib_delay_ms		= 600000,
 };
 
 static struct pm8921_bms_platform_data
 apq8064_pm8921_bms_pdata __devinitdata = {
 	.battery_type			= BATT_UNKNOWN,
-	.r_sense_uohm			= 10000,
-	.v_cutoff			= 3400,
+	.r_sense_uohm			= RSENSE_MOHM * 1000,
+	.v_cutoff			= 3600,
 	.max_voltage_uv			= MAX_VOLTAGE_MV * 1000,
-	.rconn_mohm			= 18,
+	.rconn_mohm			= 28,
 	.shutdown_soc_valid_limit	= 20,
 	.adjust_soc_low_threshold	= 25,
 	.chg_term_ua			= CHG_TERM_MA * 1000,
@@ -453,10 +459,12 @@ apq8064_pm8921_bms_pdata __devinitdata = {
 	.high_ocv_correction_limit_uv	= 50,
 	.low_ocv_correction_limit_uv	= 100,
 	.hold_soc_est			= 3,
-	.enable_fcc_learning		= 1,
-	.min_fcc_learning_soc		= 20,
-	.min_fcc_ocv_pc			= 30,
-	.min_fcc_learning_samples	= 5,
+};
+
+static struct pm8xxx_vibrator_platform_data apq8064_pm8921_vib_pdata = {
+	.initial_vibrate_ms  = 0,
+	.level_mV = 3000,
+	.max_timeout_ms = 15000,
 };
 
 static struct pm8921_platform_data
@@ -472,6 +480,7 @@ apq8064_pm8921_platform_data __devinitdata = {
 	.charger_pdata		= &apq8064_pm8921_chg_pdata,
 	.bms_pdata		= &apq8064_pm8921_bms_pdata,
 	.ccadc_pdata		= &apq8064_pm8xxx_ccadc_pdata,
+	.vibrator_pdata		= &apq8064_pm8921_vib_pdata,
 };
 
 static struct pm8xxx_irq_platform_data
@@ -531,6 +540,7 @@ void __init apq8064_init_pmic(void)
 
 	if (machine_is_apq8064_mtp()) {
 		apq8064_pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
+		apq8064_pm8921_chg_pdata.disable_chg_rmvl_wrkarnd = true;
 	} else if (machine_is_apq8064_liquid()) {
 		apq8064_pm8921_bms_pdata.battery_type = BATT_DESAY;
 	} else if (machine_is_apq8064_cdp()) {
