@@ -25,6 +25,17 @@
 #define SUB_UNKNOWN	0x0140
 #endif
 
+#ifdef CONFIG_MACH_OPPO
+#define FASTBOOT_MODE	0x77665500
+#define RECOVERY_MODE	0x77665502
+#define FACTORY_MODE	0x77665504
+#define WLAN_MODE	0x77665505
+#define RF_MODE		0x77665506
+#define KERNEL_MODE	0x7766550a
+#define MODEM_MODE	0x7766550b
+#define ANDROID_MODE	0x7766550c
+#endif
+
 #if defined(CONFIG_MSM_NATIVE_RESTART)
 void msm_set_restart_mode(int mode);
 void msm_restart(char mode, const char *cmd);
