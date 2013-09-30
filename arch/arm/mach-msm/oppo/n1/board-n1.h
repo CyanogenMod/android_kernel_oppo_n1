@@ -22,6 +22,15 @@
 #include <mach/msm_rtb.h>
 #include <mach/msm_cache_dump.h>
 
+#define GPIO_TOUCH_RST			7
+#define GPIO_TOUCH_INT			6
+#define GPIO_TP_WAKEUP			14
+#define GPIO_TP_ID			15
+#define GPIO_TOUCHPAD_INT		56
+#define GPIO_TOUCHPAD_RST		57
+#define GPIO_TP_ID2_N1			59
+#define GPIO_TP_ID_N1			60
+
 /* Macros assume PMIC GPIOs and MPPs start at 1 */
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
 #define PM8921_GPIO_PM_TO_SYS(pm_gpio)	(pm_gpio - 1 + PM8921_GPIO_BASE)

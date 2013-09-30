@@ -1326,223 +1326,186 @@ static struct i2c_board_info isa1200_board_info[] __initdata = {
 		.platform_data = &isa1200_1_pdata,
 	},
 };
-/* configuration data for mxt1386e using V2.1 firmware */
-static const u8 mxt1386e_config_data_v2_1[] = {
-	/* T6 Object */
-	0, 0, 0, 0, 0, 0,
-	/* T38 Object */
-	14, 3, 0, 5, 7, 12, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0,
-	/* T7 Object */
-	32, 10, 50,
-	/* T8 Object */
-	25, 0, 20, 20, 0, 0, 0, 0, 0, 0,
-	/* T9 Object */
-	139, 0, 0, 26, 42, 0, 32, 80, 2, 5,
-	0, 5, 5, 79, 10, 30, 10, 10, 255, 2,
-	85, 5, 0, 5, 9, 5, 12, 35, 70, 40,
-	20, 5, 0, 0, 0,
-	/* T18 Object */
-	0, 0,
-	/* T24 Object */
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0,
-	/* T25 Object */
-	1, 0, 60, 115, 156, 99,
-	/* T27 Object */
-	0, 0, 0, 0, 0, 0, 0,
-	/* T40 Object */
-	0, 0, 0, 0, 0,
-	/* T42 Object */
-	0, 0, 255, 0, 255, 0, 0, 0, 0, 0,
-	/* T43 Object */
-	0, 0, 0, 0, 0, 0, 0, 64, 0, 8,
-	16,
-	/* T46 Object */
-	68, 0, 16, 16, 0, 0, 0, 0, 0,
-	/* T47 Object */
-	0, 0, 0, 0, 0, 0, 3, 64, 66, 0,
-	/* T48 Object */
-	1, 64, 64, 0, 0, 0, 0, 0, 0, 0,
-	32, 40, 0, 10, 10, 0, 0, 100, 10, 90,
-	0, 0, 0, 0, 0, 0, 0, 10, 1, 10,
-	52, 10, 12, 0, 33, 0, 1, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0,
-	/* T56 Object */
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0,
-};
 
-#define MXT_TS_GPIO_IRQ			6
-#define MXT_TS_PWR_EN_GPIO		PM8921_GPIO_PM_TO_SYS(23)
-#define MXT_TS_RESET_GPIO		33
+static struct regulator *vreg_tp_2P8V = NULL;
+static struct regulator *vreg_tp_1P8V = NULL;
+static DEFINE_MUTEX(TP_POWER_LOCK);
+static DEFINE_MUTEX(TP_BK_POWER_LOCK);
 
-static struct mxt_config_info mxt_config_array[] = {
-	{
-		.config		= mxt1386e_config_data_v2_1,
-		.config_length	= ARRAY_SIZE(mxt1386e_config_data_v2_1),
-		.family_id	= 0xA0,
-		.variant_id	= 0x7,
-		.version	= 0x21,
-		.build		= 0xAA,
-		.bootldr_id	= MXT_BOOTLOADER_ID_1386E,
-		.fw_name	= "atmel_8064_liquid_v2_2_AA.hex",
-	},
-	{
-		/* The config data for V2.2.AA is the same as for V2.1.AA */
-		.config		= mxt1386e_config_data_v2_1,
-		.config_length	= ARRAY_SIZE(mxt1386e_config_data_v2_1),
-		.family_id	= 0xA0,
-		.variant_id	= 0x7,
-		.version	= 0x22,
-		.build		= 0xAA,
-		.bootldr_id	= MXT_BOOTLOADER_ID_1386E,
-	},
-};
-
-static struct mxt_platform_data mxt_platform_data = {
-	.config_array		= mxt_config_array,
-	.config_array_size	= ARRAY_SIZE(mxt_config_array),
-	.panel_minx		= 0,
-	.panel_maxx		= 1365,
-	.panel_miny		= 0,
-	.panel_maxy		= 767,
-	.disp_minx		= 0,
-	.disp_maxx		= 1365,
-	.disp_miny		= 0,
-	.disp_maxy		= 767,
-	.irqflags		= IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-	.i2c_pull_up		= true,
-	.reset_gpio		= MXT_TS_RESET_GPIO,
-	.irq_gpio		= MXT_TS_GPIO_IRQ,
-};
-
-static struct i2c_board_info mxt_device_info[] __initdata = {
-	{
-		I2C_BOARD_INFO("atmel_mxt_ts", 0x5b),
-		.platform_data = &mxt_platform_data,
-		.irq = MSM_GPIO_TO_INT(MXT_TS_GPIO_IRQ),
-	},
-};
-#define CYTTSP_TS_GPIO_IRQ		6
-#define CYTTSP_TS_GPIO_SLEEP		33
-#define CYTTSP_TS_GPIO_SLEEP_ALT	12
-
-static ssize_t tma340_vkeys_show(struct kobject *kobj,
-			struct kobj_attribute *attr, char *buf)
-{
-	return snprintf(buf, 200,
-	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":73:1120:97:97"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":230:1120:97:97"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":389:1120:97:97"
-	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":544:1120:97:97"
-	"\n");
-}
-
-static struct kobj_attribute tma340_vkeys_attr = {
-	.attr = {
-		.mode = S_IRUGO,
-	},
-	.show = &tma340_vkeys_show,
-};
-
-static struct attribute *tma340_properties_attrs[] = {
-	&tma340_vkeys_attr.attr,
-	NULL
-};
-
-static struct attribute_group tma340_properties_attr_group = {
-	.attrs = tma340_properties_attrs,
-};
-
-static int cyttsp_platform_init(struct i2c_client *client)
+static int init_tp_regulator(void)
 {
 	int rc = 0;
-	static struct kobject *tma340_properties_kobj;
-
-	tma340_vkeys_attr.attr.name = "virtualkeys.cyttsp-i2c";
-	tma340_properties_kobj = kobject_create_and_add("board_properties",
-								NULL);
-	if (tma340_properties_kobj)
-		rc = sysfs_create_group(tma340_properties_kobj,
-					&tma340_properties_attr_group);
-	if (!tma340_properties_kobj || rc)
-		pr_err("%s: failed to create board_properties\n",
-				__func__);
-
-	return 0;
+	if(vreg_tp_2P8V == NULL) {
+		vreg_tp_2P8V = regulator_get(NULL, "8921_l16");
+		if (IS_ERR(vreg_tp_2P8V))
+			return PTR_ERR(vreg_tp_2P8V);
+		rc = regulator_set_voltage(vreg_tp_2P8V, 2800000, 2800000);
+		if (rc) {
+			pr_err("%s: unable to set the voltage for regulator vreg_2P8V", __func__);
+			regulator_put(vreg_tp_2P8V);
+			vreg_tp_2P8V = NULL;
+			return rc;
+		}
+	}
+	return rc;
 }
 
-static struct cyttsp_regulator cyttsp_regulator_data[] = {
+static int inline enable_tp_regulator(struct regulator **vreg_tp)
+{
+	int rc = regulator_enable(*vreg_tp);
+	if (rc) {
+		pr_err("%s: unable to enable tp regulator", __func__);
+		regulator_put(*vreg_tp);
+		*vreg_tp = NULL;
+	}
+	return rc;
+}
+
+static int inline disable_tp_regulator(struct regulator *vreg_tp)
+{
+	int rc = regulator_disable(vreg_tp);
+	if (rc)
+		pr_err("%s: Unable to disable tp regulator", __func__);
+	return rc;
+}
+
+static int oppo_total_touchscreen_power(struct regulator *vreg, int on);
+static int oppo_touchscreen_power(int on)
+{
+	int rc = 0;
+	mutex_lock(&TP_POWER_LOCK);
+	if ((rc = init_tp_regulator()) == 0)
+		rc = oppo_total_touchscreen_power(vreg_tp_2P8V,on);
+	mutex_unlock(&TP_POWER_LOCK);
+	return rc = 0;
+}
+
+static int oppo_touchpad_power(int on) {
+	int rc = 0;
+
+	if ((get_pcb_version() >= PCB_VERSION_EVT3_N1T)
+			&& (get_pcb_version() <= PCB_VERSION_PVT_N1T)) {
+		mutex_lock(&TP_BK_POWER_LOCK);
+		if(vreg_tp_1P8V == NULL) {
+			vreg_tp_1P8V = regulator_get(NULL, "8921_l21");
+			if (IS_ERR(vreg_tp_1P8V)) {
+				mutex_unlock(&TP_BK_POWER_LOCK);
+				return PTR_ERR(vreg_tp_1P8V);
+			}
+		}
+		rc = oppo_total_touchscreen_power(vreg_tp_1P8V,on);
+		mutex_unlock(&TP_BK_POWER_LOCK);
+	}
+	return rc;
+}
+
+static int oppo_total_touchscreen_power(struct regulator* vreg,int on)
+{
+	int rc = 0;
+
+	if (on == 0xEF) {
+		// Power reset
+		rc = disable_tp_regulator(vreg);
+		if (rc)
+			goto oppo_tp_power_return;
+		msleep(20);
+		rc = enable_tp_regulator(&vreg);
+		if (rc)
+			goto oppo_tp_power_return;
+		mdelay(50);
+		pr_debug("[TSP] %s: power reset\n", __func__);
+	} else if (on) {
+		// Power on
+		rc = enable_tp_regulator(&vreg);
+		if (rc)
+			goto oppo_tp_power_return;
+		mdelay(50);
+		pr_debug("[TSP] %s: power on\n", __func__);
+	} else {
+		// Power off
+		rc = disable_tp_regulator(vreg);
+		if (rc)
+			goto oppo_tp_power_return;
+		mdelay(5);
+		pr_debug("[TSP] %s: power off\n", __func__);
+	}
+	pr_info("tp power %s, now:%d.\n", on?"on":"off", regulator_is_enabled(vreg));
+oppo_tp_power_return:
+	return rc;
+}
+
+int remote_rmi4_get_irq_gpio(void)
+{
+	return (int) GPIO_TOUCH_INT;
+}
+
+static void touch_init_hw(void)
+{
+	gpio_request(GPIO_TOUCH_INT, "TOUCH_INT");
+	gpio_direction_input(GPIO_TOUCH_INT);
+	if (get_pcb_version() >= PCB_VERSION_EVT_N1) {
+		gpio_tlmm_config(GPIO_CFG(GPIO_TP_ID_N1, 0, GPIO_CFG_INPUT,
+					GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(GPIO_TP_ID2_N1, 0, GPIO_CFG_INPUT,
+					GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	} else {
+		gpio_tlmm_config(GPIO_CFG(GPIO_TP_WAKEUP, 0, GPIO_CFG_INPUT,
+					GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(GPIO_TP_ID, 0, GPIO_CFG_INPUT,
+					GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(GPIO_TOUCH_RST, 0, GPIO_CFG_OUTPUT,
+					GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+		gpio_request(GPIO_TOUCH_RST, "TOUCH_RST");
+		gpio_direction_output(GPIO_TOUCH_RST, 1);
+	}
+	oppo_touchscreen_power(1);
+}
+
+static struct synaptics_i2c_rmi_platform_data synap_s3202_touch_platform_data[] = {
 	{
-		.name = "vdd",
-		.min_uV = CY_TMA300_VTG_MIN_UV,
-		.max_uV = CY_TMA300_VTG_MAX_UV,
-		.hpm_load_uA = CY_TMA300_CURR_24HZ_UA,
-		.lpm_load_uA = CY_TMA300_CURR_24HZ_UA,
-	},
-	{
-		.name = "vcc_i2c",
-		.min_uV = CY_I2C_VTG_MIN_UV,
-		.max_uV = CY_I2C_VTG_MAX_UV,
-		.hpm_load_uA = CY_I2C_CURR_UA,
-		.lpm_load_uA = CY_I2C_CURR_UA,
-	},
+		.version = 0x0101,
+		.power = oppo_touchscreen_power,
+		.flags = SYNAPTICS_SNAP_TO_INACTIVE_EDGE,
+		.irqflags = IRQF_TRIGGER_LOW,
+	}
 };
 
-static struct cyttsp_platform_data cyttsp_pdata = {
-	.panel_maxx = 634,
-	.panel_maxy = 1166,
-	.disp_minx = 18,
-	.disp_maxx = 617,
-	.disp_miny = 18,
-	.disp_maxy = 1041,
-	.flags = 0x01,
-	.gen = CY_GEN3,
-	.use_st = CY_USE_ST,
-	.use_mt = CY_USE_MT,
-	.use_hndshk = CY_SEND_HNDSHK,
-	.use_trk_id = CY_USE_TRACKING_ID,
-	.use_sleep = CY_USE_DEEP_SLEEP_SEL,
-	.use_gestures = CY_USE_GESTURES,
-	.fw_fname = "cyttsp_8064_mtp.hex",
-	/* change act_intrvl to customize the Active power state
-	 * scanning/processing refresh interval for Operating mode
-	 */
-	.act_intrvl = CY_ACT_INTRVL_DFLT,
-	/* change tch_tmout to customize the touch timeout for the
-	 * Active power state for Operating mode
-	 */
-	.tch_tmout = CY_TCH_TMOUT_DFLT,
-	/* change lp_intrvl to customize the Low Power power state
-	 * scanning/processing refresh interval for Operating mode
-	 */
-	.lp_intrvl = CY_LP_INTRVL_DFLT,
-	.sleep_gpio = CYTTSP_TS_GPIO_SLEEP,
-	.resout_gpio = -1,
-	.irq_gpio = CYTTSP_TS_GPIO_IRQ,
-	.regulator_info = cyttsp_regulator_data,
-	.num_regulators = ARRAY_SIZE(cyttsp_regulator_data),
-	.init = cyttsp_platform_init,
-	.correct_fw_ver = 17,
+static struct i2c_board_info synaptics_s3202_touch_info[] = {
+	{
+		I2C_BOARD_INFO(SYNAPTICS_I2C_RMI_NAME, 0x20),
+		.irq = MSM_GPIO_TO_INT(GPIO_TOUCH_INT),
+		.platform_data = synap_s3202_touch_platform_data,
+	}
 };
 
-static struct i2c_board_info cyttsp_info[] __initdata = {
+static void touchpad_init_hw(void)
+{
+	gpio_tlmm_config(GPIO_CFG(GPIO_TOUCHPAD_INT, 0, GPIO_CFG_INPUT,
+				GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(GPIO_TOUCHPAD_RST, 0, GPIO_CFG_OUTPUT,
+				GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	oppo_touchpad_power(1);
+}
+
+static struct y8c20x66a_i2c_rmi_platform_data synap_y8c20x66a_touch_platform_data[] = {
 	{
-		I2C_BOARD_INFO(CY_I2C_NAME, 0x24),
-		.platform_data = &cyttsp_pdata,
-		.irq = MSM_GPIO_TO_INT(CYTTSP_TS_GPIO_IRQ),
-	},
+		.power = oppo_touchpad_power,
+		.irqflags = IRQF_TRIGGER_FALLING,
+		.reset_gpio = GPIO_TOUCHPAD_RST,
+	}
+};
+
+static struct i2c_board_info synaptics_y8c20x66a_touch_info[] = {
+	{
+#ifdef CYPRESS_CHIP
+		I2C_BOARD_INFO(y8c20x66a_I2C_RMI_NAME, 0x64),   //cypress
+#endif
+#ifdef MICROCHIP_CHIP
+		I2C_BOARD_INFO(y8c20x66a_I2C_RMI_NAME, 0x25),   //microchip
+#endif
+		.irq = MSM_GPIO_TO_INT(GPIO_TOUCHPAD_INT),
+		.platform_data = synap_y8c20x66a_touch_platform_data,
+	}
 };
 
 #define MSM_WCNSS_PHYS	0x03000000
@@ -3109,16 +3072,16 @@ static struct i2c_registry apq8064_i2c_devices[] __initdata = {
 		ARRAY_SIZE(bq27541_charger_i2c_info),
 	},
 	{
-		I2C_SURF | I2C_LIQUID,
+		I2C_SURF | I2C_LIQUID | I2C_FFA,
 		APQ_8064_GSBI3_QUP_I2C_BUS_ID,
-		mxt_device_info,
-		ARRAY_SIZE(mxt_device_info),
+		synaptics_s3202_touch_info,
+		ARRAY_SIZE(synaptics_s3202_touch_info),
 	},
 	{
-		I2C_FFA,
-		APQ_8064_GSBI3_QUP_I2C_BUS_ID,
-		cyttsp_info,
-		ARRAY_SIZE(cyttsp_info),
+		I2C_SURF | I2C_LIQUID | I2C_FFA,
+		APQ_8064_GSBI1_QUP_I2C_BUS_ID,
+		synaptics_y8c20x66a_touch_info,
+		ARRAY_SIZE(synaptics_y8c20x66a_touch_info),
 	},
 	{
 		I2C_FFA | I2C_LIQUID,
@@ -3232,6 +3195,9 @@ static void __init register_i2c_devices(void)
 		mach_mask = I2C_MPQ_CDP;
 	else
 		pr_err("unmatched machine ID in register_i2c_devices\n");
+
+	touch_init_hw();
+	touchpad_init_hw();
 
 	/* Run the array and install devices as appropriate */
 	for (i = 0; i < ARRAY_SIZE(apq8064_i2c_devices); ++i) {
