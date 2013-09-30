@@ -252,7 +252,9 @@ static struct memtype_reserve apq8064_reserve_table[] __initdata = {
 static void __init reserve_rtb_memory(void)
 {
 #if defined(CONFIG_MSM_RTB)
-	apq8064_reserve_table[MEMTYPE_EBI1].size += apq8064_rtb_pdata.size;
+	if (!strstr(boot_command_line, "oppo_ftm_mode=factory2"))
+		apq8064_reserve_table[MEMTYPE_EBI1].size +=
+			apq8064_rtb_pdata.size;
 	pr_info("mem_map: rtb reserved with size 0x%x in pool\n",
 			apq8064_rtb_pdata.size);
 #endif
@@ -860,6 +862,7 @@ out:
 
 static struct android_usb_platform_data android_usb_pdata = {
 	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
+	.cdrom = true,
 };
 
 static struct platform_device android_usb_device = {
@@ -1043,12 +1046,12 @@ static struct wcd9xxx_pdata apq8064_tabla_platform_data = {
 	.micbias = {
 		.ldoh_v = TABLA_LDOH_2P85_V,
 		.cfilt1_mv = 1800,
-		.cfilt2_mv = 2700,
+		.cfilt2_mv = 2000,
 		.cfilt3_mv = 1800,
-		.bias1_cfilt_sel = TABLA_CFILT1_SEL,
+		.bias1_cfilt_sel = TABLA_CFILT2_SEL,
 		.bias2_cfilt_sel = TABLA_CFILT2_SEL,
-		.bias3_cfilt_sel = TABLA_CFILT3_SEL,
-		.bias4_cfilt_sel = TABLA_CFILT3_SEL,
+		.bias3_cfilt_sel = TABLA_CFILT2_SEL,
+		.bias4_cfilt_sel = TABLA_CFILT2_SEL,
 	},
 	.regulator = {
 	{
@@ -1110,12 +1113,12 @@ static struct wcd9xxx_pdata apq8064_tabla20_platform_data = {
 	.micbias = {
 		.ldoh_v = TABLA_LDOH_2P85_V,
 		.cfilt1_mv = 1800,
-		.cfilt2_mv = 2700,
+		.cfilt2_mv = 2000,
 		.cfilt3_mv = 1800,
-		.bias1_cfilt_sel = TABLA_CFILT1_SEL,
+		.bias1_cfilt_sel = TABLA_CFILT2_SEL,
 		.bias2_cfilt_sel = TABLA_CFILT2_SEL,
-		.bias3_cfilt_sel = TABLA_CFILT3_SEL,
-		.bias4_cfilt_sel = TABLA_CFILT3_SEL,
+		.bias3_cfilt_sel = TABLA_CFILT2_SEL,
+		.bias4_cfilt_sel = TABLA_CFILT2_SEL,
 	},
 	.regulator = {
 	{
@@ -2714,7 +2717,7 @@ static struct slim_boardinfo apq8064_slim_devices[] = {
 };
 
 static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi1_pdata = {
-	.clk_freq = 100000,
+	.clk_freq = 245000,
 	.src_clk_rate = 24000000,
 };
 
