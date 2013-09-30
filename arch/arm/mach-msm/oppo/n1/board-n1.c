@@ -2406,6 +2406,14 @@ static struct platform_device gpio_ir_recv_pdev = {
 	},
 };
 
+static struct platform_device *gsbi5_i2c_devices[] __initdata = {
+	&apq8064_device_qup_i2c_gsbi5,
+};
+
+static struct platform_device *gsbi7_i2c_devices[] __initdata = {
+	&apq8064_device_qup_i2c_gsbi7,
+};
+
 static struct platform_device *common_not_mpq_devices[] __initdata = {
 	&apq8064_device_qup_i2c_gsbi1,
 	&apq8064_device_qup_i2c_gsbi3,
@@ -2415,7 +2423,6 @@ static struct platform_device *early_common_devices[] __initdata = {
 	&ram_console_device,
 	&apq8064_device_acpuclk,
 	&apq8064_device_dmov,
-	&apq8064_device_qup_spi_gsbi5,
 };
 
 static struct platform_device *pm8921_common_devices[] __initdata = {
@@ -2556,8 +2563,7 @@ static struct platform_device *common_devices[] __initdata = {
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
-	&apq8064_device_uart_gsbi1,
-	&apq8064_device_uart_gsbi7,
+	&apq8064_device_uart_gsbi5,
 	&msm_device_sps_apq8064,
 #ifdef CONFIG_MSM_ROTATOR
 	&msm_rotator_device,
@@ -2682,8 +2688,8 @@ static struct platform_device *mpq_devices[] __initdata = {
 	&rc_input_loopback_pdev,
 };
 
-static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
-	.max_clock_speed = 1100000,
+static struct msm_spi_platform_data apq8064_qup_spi_gsbi4_pdata = {
+	.max_clock_speed = 24000000,
 };
 
 #define KS8851_IRQ_GPIO		43
@@ -2702,6 +2708,13 @@ static struct spi_board_info spi_board_info[] __initdata = {
 		.max_speed_hz		= 1100000,
 		.bus_num		= 0,
 		.chip_select		= 3,
+		.mode			= SPI_MODE_0,
+	},
+	{
+		.modalias		= "m9mo_spi",
+		.max_speed_hz		= 10000000,
+		.bus_num		= 0,
+		.chip_select		= 0,
 		.mode			= SPI_MODE_0,
 	},
 };
@@ -2724,17 +2737,27 @@ static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi1_pdata = {
 };
 
 static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi3_pdata = {
-	.clk_freq = 384000,
+	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
 };
 
 static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi4_pdata = {
+	.clk_freq = 384000,
+	.src_clk_rate = 24000000,
+};
+
+static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi5_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
 };
 
 static struct msm_i2c_platform_data mpq8064_i2c_qup_gsbi5_pdata = {
 	.clk_freq = 100000,
+	.src_clk_rate = 24000000,
+};
+
+static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi7_pdata = {
+	.clk_freq = 384000,
 	.src_clk_rate = 24000000,
 };
 
@@ -2763,8 +2786,12 @@ static void __init apq8064_i2c_init(void)
 		apq8064_device_qup_i2c_gsbi4.dev.platform_data =
 					&apq8064_i2c_qup_gsbi4_pdata;
 	}
+	apq8064_device_qup_i2c_gsbi5.dev.platform_data =
+					&apq8064_i2c_qup_gsbi5_pdata;
 	mpq8064_device_qup_i2c_gsbi5.dev.platform_data =
 					&mpq8064_i2c_qup_gsbi5_pdata;
+	apq8064_device_qup_i2c_gsbi7.dev.platform_data =
+					&apq8064_i2c_qup_gsbi7_pdata;
 }
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
@@ -3278,9 +3305,15 @@ static void __init register_i2c_devices(void)
 #ifdef CONFIG_MSM_CAMERA
 	struct i2c_registry apq8064_camera_i2c_devices = {
 		I2C_SURF | I2C_FFA | I2C_LIQUID | I2C_RUMI,
-		APQ_8064_GSBI4_QUP_I2C_BUS_ID,
+		APQ_8064_GSBI7_QUP_I2C_BUS_ID,
 		apq8064_camera_board_info.board_info,
 		apq8064_camera_board_info.num_i2c_board_info,
+	};
+	struct i2c_registry apq8064_subcamera_i2c_devices = {
+		I2C_SURF | I2C_FFA | I2C_LIQUID | I2C_RUMI,
+		APQ_8064_GSBI7_QUP_I2C_BUS_ID,
+		apq8064_subcamera_board_info.board_info,
+		apq8064_subcamera_board_info.num_i2c_board_info,
 	};
 #endif
 	/* Build the matching 'supported_machs' bitmask */
@@ -3312,6 +3345,10 @@ static void __init register_i2c_devices(void)
 		i2c_register_board_info(apq8064_camera_i2c_devices.bus,
 			apq8064_camera_i2c_devices.info,
 			apq8064_camera_i2c_devices.len);
+	if (apq8064_subcamera_i2c_devices.machs & mach_mask)
+		i2c_register_board_info(apq8064_subcamera_i2c_devices.bus,
+				apq8064_subcamera_i2c_devices.info,
+				apq8064_subcamera_i2c_devices.len);
 #endif
 
 	for (i = 0; i < ARRAY_SIZE(mpq8064_i2c_devices); ++i) {
@@ -3400,8 +3437,12 @@ static void __init apq8064_common_init(void)
 	apq8064_i2c_init();
 	register_i2c_devices();
 
-	apq8064_device_qup_spi_gsbi5.dev.platform_data =
-						&apq8064_qup_spi_gsbi5_pdata;
+	apq8064_device_qup_spi_gsbi4.dev.platform_data =
+		&apq8064_qup_spi_gsbi4_pdata;
+	platform_device_register(&apq8064_device_qup_spi_gsbi4);
+	gpio_request(26, "m9mo_irq_gpio");
+	gpio_direction_input(26);
+
 	apq8064_init_pmic();
 	if (machine_is_apq8064_liquid())
 		msm_otg_pdata.mhl_enable = true;
@@ -3430,13 +3471,12 @@ static void __init apq8064_common_init(void)
 			machine_is_mpq8064_dtv())) {
 		platform_add_devices(common_not_mpq_devices,
 			ARRAY_SIZE(common_not_mpq_devices));
-
-		/* Add GSBI4 I2C Device for non-fusion3 platform */
-		if (socinfo_get_platform_subtype() !=
-					PLATFORM_SUBTYPE_SGLTE2) {
-			platform_device_register(&apq8064_device_qup_i2c_gsbi4);
-		}
+		platform_add_devices(gsbi7_i2c_devices,
+			ARRAY_SIZE(gsbi7_i2c_devices));
 	}
+
+	platform_add_devices(gsbi5_i2c_devices,
+			ARRAY_SIZE(gsbi5_i2c_devices));
 
 	msm_hsic_pdata.swfi_latency =
 		msm_rpmrs_levels[0].latency_us;

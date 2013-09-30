@@ -121,6 +121,7 @@ void apq8064_init_cam(void);
 #define APQ_8064_GSBI3_QUP_I2C_BUS_ID 3
 #define APQ_8064_GSBI4_QUP_I2C_BUS_ID 4
 #define APQ_8064_GSBI5_QUP_I2C_BUS_ID 5
+#define APQ_8064_GSBI7_QUP_I2C_BUS_ID 7
 
 unsigned char apq8064_hdmi_as_primary_selected(void);
 unsigned char apq8064_mhl_display_enabled(void);
