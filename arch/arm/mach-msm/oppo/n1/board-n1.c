@@ -2788,240 +2788,210 @@ static int ethernet_init(void)
 }
 #endif
 
-#define GPIO_KEY_HOME			PM8921_GPIO_PM_TO_SYS(27)
-#define GPIO_KEY_VOLUME_UP		PM8921_GPIO_PM_TO_SYS(35)
-#define GPIO_KEY_VOLUME_DOWN_PM8921	PM8921_GPIO_PM_TO_SYS(38)
-#define GPIO_KEY_VOLUME_DOWN_PM8917	PM8921_GPIO_PM_TO_SYS(30)
-#define GPIO_KEY_CAM_FOCUS		PM8921_GPIO_PM_TO_SYS(3)
-#define GPIO_KEY_CAM_SNAP		PM8921_GPIO_PM_TO_SYS(4)
-#define GPIO_KEY_ROTATION_PM8921	PM8921_GPIO_PM_TO_SYS(42)
-#define GPIO_KEY_ROTATION_PM8917	PM8921_GPIO_PM_TO_SYS(8)
-
-static struct gpio_keys_button cdp_keys_pm8921[] = {
+struct gpio_keys_button vol_keys[] = {
 	{
-		.code           = KEY_HOME,
-		.gpio           = GPIO_KEY_HOME,
-		.desc           = "home_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.wakeup		= 1,
-		.debounce_interval = 15,
+		.code              = KEY_VOLUMEDOWN,
+		.gpio              = GPIO_KEY_VOLUME_DOWN,
+		.active_low        = 0,
+		.desc              = "volume_down_key",
+		.type              = EV_KEY,
+		.wakeup            = 1,
+		.debounce_interval = 20,
+		.can_disable       = true,
 	},
 	{
-		.code           = KEY_VOLUMEUP,
-		.gpio           = GPIO_KEY_VOLUME_UP,
-		.desc           = "volume_up_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.wakeup		= 1,
-		.debounce_interval = 15,
+		.code              = KEY_VOLUMEUP,
+		.gpio              = GPIO_KEY_VOLUME_UP,
+		.active_low        = 0,
+		.desc              = "volume_up_key",
+		.type              = EV_KEY,
+		.wakeup            = 1,
+		.debounce_interval = 20,
+		.can_disable       = true,
 	},
 	{
-		.code           = KEY_VOLUMEDOWN,
-		.gpio           = GPIO_KEY_VOLUME_DOWN_PM8921,
-		.desc           = "volume_down_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.wakeup		= 1,
-		.debounce_interval = 15,
-	},
-	{
-		.code           = SW_ROTATE_LOCK,
-		.gpio           = GPIO_KEY_ROTATION_PM8921,
-		.desc           = "rotate_key",
-		.active_low     = 1,
-		.type		= EV_SW,
-		.debounce_interval = 15,
+		.code              = SW_LID,
+		.active_low        = 1,
+		.desc              = "hallsensor_key",
+		.type              = EV_SW,
+		.wakeup            = 1,
+		.debounce_interval = 20,
+		.can_disable       = true,
 	},
 };
 
-static struct gpio_keys_button cdp_keys_pm8917[] = {
-	{
-		.code           = KEY_HOME,
-		.gpio           = GPIO_KEY_HOME,
-		.desc           = "home_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.wakeup		= 1,
-		.debounce_interval = 15,
+struct gpio_keys_platform_data gpio_keys_pdata = {
+	.buttons = vol_keys,
+	.nbuttons = ARRAY_SIZE(vol_keys),
+};
+
+static struct platform_device gpio_keys_device ={
+	.name = "gpio-keys",
+	.id = -1,
+	.dev = {
+		.platform_data = &gpio_keys_pdata,
 	},
+};
+
+struct gpio_keys_button vol_keys_n1[] = {
 	{
-		.code           = KEY_VOLUMEUP,
-		.gpio           = GPIO_KEY_VOLUME_UP,
-		.desc           = "volume_up_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.wakeup		= 1,
-		.debounce_interval = 15,
-	},
-	{
-		.code           = KEY_VOLUMEDOWN,
-		.gpio           = GPIO_KEY_VOLUME_DOWN_PM8917,
-		.desc           = "volume_down_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.wakeup		= 1,
-		.debounce_interval = 15,
+		.code              = KEY_VOLUMEDOWN,
+		.gpio              = GPIO_KEY_VOLUME_DOWN,
+		.active_low        = 1,
+		.desc              = "volume_down_key",
+		.type              = EV_KEY,
+		.wakeup            = 1,
+		.debounce_interval = 20,
+		.can_disable       = true,
 	},
 	{
-		.code           = SW_ROTATE_LOCK,
-		.gpio           = GPIO_KEY_ROTATION_PM8917,
-		.desc           = "rotate_key",
-		.active_low     = 1,
-		.type		= EV_SW,
-		.debounce_interval = 15,
-	},
-};
-
-static struct gpio_keys_platform_data cdp_keys_data = {
-	.buttons        = cdp_keys_pm8921,
-	.nbuttons       = ARRAY_SIZE(cdp_keys_pm8921),
-};
-
-static struct platform_device cdp_kp_pdev = {
-	.name           = "gpio-keys",
-	.id             = -1,
-	.dev            = {
-		.platform_data  = &cdp_keys_data,
-	},
-};
-
-static struct gpio_keys_button mtp_keys[] = {
-	{
-		.code           = KEY_CAMERA_FOCUS,
-		.gpio           = GPIO_KEY_CAM_FOCUS,
-		.desc           = "cam_focus_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.wakeup		= 1,
-		.debounce_interval = 15,
+		.code              = KEY_VOLUMEUP,
+		.gpio              = GPIO_KEY_VOLUME_UP,
+		.active_low        = 0,
+		.desc              = "volume_up_key",
+		.type              = EV_KEY,
+		.wakeup            = 1,
+		.debounce_interval = 20,
+		.can_disable       = true,
 	},
 	{
-		.code           = KEY_VOLUMEUP,
-		.gpio           = GPIO_KEY_VOLUME_UP,
-		.desc           = "volume_up_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.wakeup		= 1,
-		.debounce_interval = 15,
+		.code              = SW_LID,
+		.gpio              = GPIO_HALLSENSOR_N1,
+		.active_low        = 1,
+		.desc              = "hallsensor_key",
+		.type              = EV_SW,
+		.wakeup            = 1,
+		.debounce_interval = 20,
+		.can_disable       = true,
 	},
 	{
-		.code           = KEY_VOLUMEDOWN,
-		.gpio           = GPIO_KEY_VOLUME_DOWN_PM8921,
-		.desc           = "volume_down_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.wakeup		= 1,
-		.debounce_interval = 15,
+		.code              = KEY_BACK,
+		.gpio              = GPIO_BUTTON_BACK,
+		.active_low        = 1,
+		.desc              = "button_back",
+		.type              = EV_KEY,
+		.wakeup            = 0,
+		.debounce_interval = 20,
+		.can_disable       = true,
 	},
 	{
-		.code           = KEY_CAMERA_SNAPSHOT,
-		.gpio           = GPIO_KEY_CAM_SNAP,
-		.desc           = "cam_snap_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.debounce_interval = 15,
-	},
-};
-
-static struct gpio_keys_platform_data mtp_keys_data = {
-	.buttons        = mtp_keys,
-	.nbuttons       = ARRAY_SIZE(mtp_keys),
-};
-
-static struct platform_device mtp_kp_pdev = {
-	.name           = "gpio-keys",
-	.id             = -1,
-	.dev            = {
-		.platform_data  = &mtp_keys_data,
-	},
-};
-
-static struct gpio_keys_button mpq_keys[] = {
-	{
-		.code           = KEY_VOLUMEDOWN,
-		.gpio           = GPIO_KEY_VOLUME_DOWN_PM8921,
-		.desc           = "volume_down_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.wakeup		= 1,
-		.debounce_interval = 15,
+		.code              = KEY_HOME,
+		.gpio              = GPIO_BUTTON_HOME,
+		.active_low        = 1,
+		.desc              = "button_home",
+		.type              = EV_KEY,
+		.wakeup            = 0,
+		.debounce_interval = 20,
+		.can_disable       = true,
 	},
 	{
-		.code           = KEY_VOLUMEUP,
-		.gpio           = GPIO_KEY_VOLUME_UP,
-		.desc           = "volume_up_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.wakeup		= 1,
-		.debounce_interval = 15,
+		.code              = KEY_MENU ,
+		.gpio              = GPIO_BUTTON_MENU,
+		.active_low        = 1,
+		.desc              = "button_menu",
+		.type              = EV_KEY,
+		.wakeup            = 0,
+		.debounce_interval = 20,
+		.can_disable       = true,
 	},
 };
 
-static struct gpio_keys_platform_data mpq_keys_data = {
-	.buttons        = mpq_keys,
-	.nbuttons       = ARRAY_SIZE(mpq_keys),
+struct gpio_keys_platform_data gpio_keys_pdata_n1 = {
+	.buttons = vol_keys_n1,
+	.nbuttons = ARRAY_SIZE(vol_keys_n1),
 };
 
-static struct platform_device mpq_gpio_keys_pdev = {
-	.name           = "gpio-keys",
-	.id             = -1,
-	.dev            = {
-		.platform_data  = &mpq_keys_data,
+static struct platform_device gpio_keys_device_n1 ={
+	.name = "gpio-keys",
+	.id = -1,
+	.dev = {
+		.platform_data = &gpio_keys_pdata_n1,
 	},
 };
 
-#define MPQ_KP_ROW_BASE		SX150X_EXP2_GPIO_BASE
-#define MPQ_KP_COL_BASE		(SX150X_EXP2_GPIO_BASE + 4)
-
-static unsigned int mpq_row_gpios[] = {MPQ_KP_ROW_BASE, MPQ_KP_ROW_BASE + 1,
-				MPQ_KP_ROW_BASE + 2, MPQ_KP_ROW_BASE + 3};
-static unsigned int mpq_col_gpios[] = {MPQ_KP_COL_BASE, MPQ_KP_COL_BASE + 1,
-				MPQ_KP_COL_BASE + 2};
-
-static const unsigned int mpq_keymap[] = {
-	KEY(0, 0, KEY_UP),
-	KEY(0, 1, KEY_ENTER),
-	KEY(0, 2, KEY_3),
-
-	KEY(1, 0, KEY_DOWN),
-	KEY(1, 1, KEY_EXIT),
-	KEY(1, 2, KEY_4),
-
-	KEY(2, 0, KEY_LEFT),
-	KEY(2, 1, KEY_1),
-	KEY(2, 2, KEY_5),
-
-	KEY(3, 0, KEY_RIGHT),
-	KEY(3, 1, KEY_2),
-	KEY(3, 2, KEY_6),
+struct gpio_keys_button camera_rotate_keys[] = {
+	{
+		.code              = KEY_F1,
+		.gpio              = GPIO_KEY_MR1,
+		.active_low        = 1,
+		.desc              = "MRsensor_key1",
+		.type              = EV_KEY,
+		.wakeup            = 0,
+		.debounce_interval = 20,
+		.can_disable       = true,
+	},
+	{
+		.code              = KEY_F2,
+		.gpio              = GPIO_KEY_MR2,
+		.active_low        = 1,
+		.desc              = "MRsensor_key2",
+		.type              = EV_KEY,
+		.wakeup            = 1,
+		.debounce_interval = 20,
+		.can_disable       = true,
+	}
 };
 
-static struct matrix_keymap_data mpq_keymap_data = {
-	.keymap_size	= ARRAY_SIZE(mpq_keymap),
-	.keymap		= mpq_keymap,
+struct gpio_keys_platform_data camera_rotate_keys_pdata = {
+	.buttons = camera_rotate_keys,
+	.nbuttons = ARRAY_SIZE(camera_rotate_keys),
 };
 
-static struct matrix_keypad_platform_data mpq_keypad_data = {
-	.keymap_data		= &mpq_keymap_data,
-	.row_gpios		= mpq_row_gpios,
-	.col_gpios		= mpq_col_gpios,
-	.num_row_gpios		= ARRAY_SIZE(mpq_row_gpios),
-	.num_col_gpios		= ARRAY_SIZE(mpq_col_gpios),
-	.col_scan_delay_us	= 32000,
-	.debounce_ms		= 20,
-	.wakeup			= 1,
-	.active_low		= 1,
-	.no_autorepeat		= 1,
-};
-
-static struct platform_device mpq_keypad_device = {
-	.name           = "matrix-keypad",
-	.id             = -1,
-	.dev            = {
-		.platform_data  = &mpq_keypad_data,
+static struct platform_device camera_rotate_keys_device ={
+	.name = "camera-rotate-keys",
+	.id = -1,
+	.dev = {
+		.platform_data = &camera_rotate_keys_pdata,
 	},
 };
+
+static void apq8064_init_gpio_key(void)
+{
+	if (get_pcb_version() < PCB_VERSION_EVT)
+	{
+		vol_keys[0].gpio = GPIO_KEY_VOLUME_DOWN_EVB;
+		vol_keys[1].gpio = GPIO_KEY_VOLUME_UP_EVB;
+	}
+	if (get_pcb_version() < PCB_VERSION_DVT) {
+		// volume down key in evt, default set pull down
+		gpio_tlmm_config(GPIO_CFG(vol_keys[0].gpio, 0, GPIO_CFG_INPUT,
+				GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+	} else {
+		// volume down key in dvt, default set pull up
+		gpio_tlmm_config(GPIO_CFG(vol_keys[0].gpio, 0, GPIO_CFG_INPUT,
+				GPIO_CFG_PULL_UP, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+		vol_keys[0].active_low = 1;
+	}
+	if(get_pcb_version() < PCB_VERSION_PVT){
+		vol_keys[2].gpio = GPIO_KEY_HALLSENSOR;
+	} else{
+		vol_keys[2].gpio = GPIO_KEY_HALLSENSOR_PVT;
+	}
+	gpio_tlmm_config(GPIO_CFG(vol_keys[1].gpio, 0, GPIO_CFG_INPUT,
+				GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(vol_keys[2].gpio, 0, GPIO_CFG_INPUT,
+				GPIO_CFG_PULL_UP, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+
+	if(get_pcb_version() >= PCB_VERSION_EVT_N1) {
+		gpio_tlmm_config(GPIO_CFG(GPIO_KEY_VOLUME_DOWN, 0, GPIO_CFG_INPUT,
+					GPIO_CFG_PULL_UP, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(GPIO_KEY_VOLUME_UP, 0, GPIO_CFG_INPUT,
+					GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(GPIO_HALLSENSOR_N1, 0, GPIO_CFG_INPUT,
+					GPIO_CFG_PULL_UP, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+		platform_device_register(&gpio_keys_device_n1);
+
+		/* OPPO 2013-08-06 liubin Add for camera rotate key start */
+		gpio_tlmm_config(GPIO_CFG(GPIO_KEY_MR1, 0, GPIO_CFG_INPUT,
+					GPIO_CFG_PULL_UP, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(GPIO_KEY_MR2, 0, GPIO_CFG_INPUT,
+					GPIO_CFG_PULL_UP, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
+		platform_device_register(&camera_rotate_keys_device);
+		/* OPPO 2013-08-06 liubin Add end */
+	} else {
+		platform_device_register(&gpio_keys_device);
+	}
+}
 
 /* Sensors DSPS platform data */
 #define DSPS_PIL_GENERIC_NAME		"dsps"
@@ -3291,6 +3261,7 @@ static void __init apq8064_common_init(void)
 	platform_device_register(&apq8064_device_rpm_regulator);
 	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917)
 		platform_device_register(&apq8064_pm8921_device_rpm_regulator);
+	apq8064_init_gpio_key();
 	if (msm_xo_init())
 		pr_err("Failed to initialize XO votes\n");
 	msm_clock_init(&apq8064_clock_init_data);

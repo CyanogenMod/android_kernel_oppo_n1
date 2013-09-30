@@ -22,6 +22,22 @@
 #include <mach/msm_rtb.h>
 #include <mach/msm_cache_dump.h>
 
+#define GPIO_BUTTON_BACK		PM8921_GPIO_PM_TO_SYS(26)
+#define GPIO_BUTTON_HOME		PM8921_GPIO_PM_TO_SYS(27)
+#define GPIO_BUTTON_MENU		PM8921_GPIO_PM_TO_SYS(28)
+
+#define GPIO_KEY_VOLUME_UP		(29)
+#define GPIO_KEY_VOLUME_DOWN		(32)
+#define GPIO_KEY_VOLUME_UP_EVB		(57)
+#define GPIO_KEY_VOLUME_DOWN_EVB	(59)
+
+#define GPIO_KEY_HALLSENSOR		(23)
+#define GPIO_KEY_HALLSENSOR_PVT		(44)
+#define GPIO_HALLSENSOR_N1		(15)
+
+#define GPIO_KEY_MR1			(43)
+#define GPIO_KEY_MR2			(44)
+
 #define GPIO_TOUCH_RST			7
 #define GPIO_TOUCH_INT			6
 #define GPIO_TP_WAKEUP			14
