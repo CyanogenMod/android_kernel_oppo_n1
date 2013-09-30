@@ -975,6 +975,25 @@ static struct i2c_board_info smb349_charger_i2c_info[] __initdata = {
 	},
 };
 
+static struct smb358_charger_platform_data smb358_data __initdata = {
+	.irq_gpio = PM8921_GPIO_PM_TO_SYS(29),
+	.max_charge_current = 2000,
+	.max_charge_voltage = 4500,
+};
+
+static struct i2c_board_info smb358_charger_i2c_info[] __initdata = {
+	{
+		I2C_BOARD_INFO(SMB358_CHARGER_NAME, 0x57),
+		.platform_data	= &smb358_data,
+	},
+};
+
+static struct i2c_board_info bq27541_charger_i2c_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("bq27541-gauge", 0x55),
+	},
+};
+
 struct sx150x_platform_data apq8064_sx150x_data[] = {
 	[SX150X_EPM] = {
 		.gpio_base	= GPIO_EPM_EXPANDER_BASE,
@@ -3076,6 +3095,18 @@ static struct i2c_registry apq8064_i2c_devices[] __initdata = {
 		APQ_8064_GSBI1_QUP_I2C_BUS_ID,
 		smb349_charger_i2c_info,
 		ARRAY_SIZE(smb349_charger_i2c_info)
+	},
+	{
+		I2C_SURF | I2C_FFA | I2C_LIQUID | I2C_RUMI,
+		APQ_8064_GSBI1_QUP_I2C_BUS_ID,
+		smb358_charger_i2c_info,
+		ARRAY_SIZE(smb358_charger_i2c_info),
+	},
+	{
+		I2C_SURF | I2C_FFA | I2C_LIQUID | I2C_RUMI,
+		APQ_8064_GSBI5_QUP_I2C_BUS_ID,
+		bq27541_charger_i2c_info,
+		ARRAY_SIZE(bq27541_charger_i2c_info),
 	},
 	{
 		I2C_SURF | I2C_LIQUID,
