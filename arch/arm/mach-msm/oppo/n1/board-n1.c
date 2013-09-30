@@ -3114,6 +3114,15 @@ ldo123_get_failed:
 	regulator_disable(ldol23);
 }
 
+static struct i2c_board_info lcd_1080p_info[] = {
+	{
+		I2C_BOARD_INFO("lm3630", 0x38),
+	},
+	{
+		I2C_BOARD_INFO("lm3528", 0x36),
+	},
+};
+
 #define I2C_SURF 1
 #define I2C_FFA  (1 << 1)
 #define I2C_RUMI (1 << 2)
@@ -3160,6 +3169,12 @@ static struct i2c_registry apq8064_i2c_devices[] __initdata = {
 		APQ_8064_GSBI1_QUP_I2C_BUS_ID,
 		synaptics_y8c20x66a_touch_info,
 		ARRAY_SIZE(synaptics_y8c20x66a_touch_info),
+	},
+	{
+		I2C_SURF | I2C_LIQUID | I2C_FFA |I2C_MPQ_CDP |I2C_RUMI | I2C_MPQ_HRD | I2C_MPQ_DTV,
+		APQ_8064_GSBI3_QUP_I2C_BUS_ID,
+		lcd_1080p_info,
+		ARRAY_SIZE(lcd_1080p_info),
 	},
 	{
 		I2C_SURF | I2C_FFA | I2C_LIQUID | I2C_RUMI,
