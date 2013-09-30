@@ -509,6 +509,20 @@ config LEDS_OT200
 	  This option enables support for the LEDs on the Bachmann OT200.
 	  Say Y to enable LEDs on the Bachmann OT200.
 
+config LEDS_PM8XXX_OPPO
+	tristate "LED Support for Qualcomm PMIC8XXX (Oppo variant)"
+	depends on MFD_PM8XXX
+	help
+	  This option enables support for LEDs connected over PMIC8XXX
+	  (Power Management IC) chip on Qualcomm reference boards,
+	  for example SURF and FFAs.
+
+	  This is the Oppo variant of the driver.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called leds-pmic8xxx.
+
+
 config LEDS_TRIGGERS
 	bool "LED Trigger support"
 	depends on LEDS_CLASS
