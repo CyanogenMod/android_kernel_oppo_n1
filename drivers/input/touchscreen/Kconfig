@@ -1014,4 +1014,16 @@ config TOUCHSCREEN_Y8C20X66A
 	help
 	  Say Y here to enable support for Y8C20X66A back touchscreen driver.
 
+config TOUCHSCREEN_SYNAPTICS_S3202_I2C_RMI
+	tristate "Synaptics S3202 I2C touchscreen device"
+	depends on I2C
+	help
+	  Say Y here if you have a Synaptics S3202 I2C touchscreen
+	  connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_s3202_i2c_rmi.
+
 endif
