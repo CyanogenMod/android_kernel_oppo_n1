@@ -3207,13 +3207,6 @@ static void enable_avc_i2c_bus(void)
 		gpio_set_value_cansleep(avc_i2c_en_mpp, 1);
 }
 
-/* Modify platform data values to match requirements for PM8917. */
-static void __init apq8064_pm8917_pdata_fixup(void)
-{
-	cdp_keys_data.buttons = cdp_keys_pm8917;
-	cdp_keys_data.nbuttons = ARRAY_SIZE(cdp_keys_pm8917);
-}
-
 #ifdef CONFIG_SERIAL_MSM_HS
 static struct msm_serial_hs_platform_data apq8064_uartdm_gsbi4_pdata = {
 	.config_gpio	= 4,
@@ -3247,8 +3240,6 @@ static void __init apq8064_common_init(void)
 {
 	u32 platform_version = socinfo_get_platform_version();
 
-	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
-		apq8064_pm8917_pdata_fixup();
 	platform_device_register(&msm_gpio_device);
 	if (cpu_is_apq8064ab())
 		apq8064ab_update_krait_spm();
@@ -3383,9 +3374,6 @@ static void __init apq8064_cdp_init(void)
 {
 	if (meminfo_init(SYS_MEMORY, SZ_256M) < 0)
 		pr_err("meminfo_init() failed!\n");
-	if (machine_is_apq8064_mtp() &&
-		SOCINFO_VERSION_MINOR(socinfo_get_platform_version()) == 1)
-			cyttsp_pdata.sleep_gpio = CYTTSP_TS_GPIO_SLEEP_ALT;
 	apq8064_common_init();
 	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
 		machine_is_mpq8064_dtv()) {
@@ -3416,17 +3404,6 @@ static void __init apq8064_cdp_init(void)
 #endif
 		platform_device_register(&mpq8064_device_uartdm_gsbi6);
 	}
-
-	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
-		platform_device_register(&cdp_kp_pdev);
-
-	if (machine_is_apq8064_mtp())
-		platform_device_register(&mtp_kp_pdev);
-
-	if (machine_is_mpq8064_cdp()) {
-		platform_device_register(&mpq_gpio_keys_pdev);
-		platform_device_register(&mpq_keypad_device);
-	}
 }
 
 MACHINE_START(APQ8064_MTP, "QCT APQ8064 MTP")
@@ -3440,64 +3417,3 @@ MACHINE_START(APQ8064_MTP, "QCT APQ8064 MTP")
 	.init_very_early = apq8064_early_reserve,
 	.restart = msm_restart,
 MACHINE_END
-
-MACHINE_START(APQ8064_MTP, "QCT APQ8064 MTP")
-	.map_io = apq8064_map_io,
-	.reserve = apq8064_reserve,
-	.init_irq = apq8064_init_irq,
-	.handle_irq = gic_handle_irq,
-	.timer = &msm_timer,
-	.init_machine = apq8064_cdp_init,
-	.init_early = apq8064_allocate_memory_regions,
-	.init_very_early = apq8064_early_reserve,
-	.restart = msm_restart,
-MACHINE_END
-
-MACHINE_START(APQ8064_LIQUID, "QCT APQ8064 LIQUID")
-	.map_io = apq8064_map_io,
-	.reserve = apq8064_reserve,
-	.init_irq = apq8064_init_irq,
-	.handle_irq = gic_handle_irq,
-	.timer = &msm_timer,
-	.init_machine = apq8064_cdp_init,
-	.init_early = apq8064_allocate_memory_regions,
-	.init_very_early = apq8064_early_reserve,
-	.restart = msm_restart,
-MACHINE_END
-
-MACHINE_START(MPQ8064_CDP, "QCT MPQ8064 CDP")
-	.map_io = apq8064_map_io,
-	.reserve = apq8064_reserve,
-	.init_irq = apq8064_init_irq,
-	.handle_irq = gic_handle_irq,
-	.timer = &msm_timer,
-	.init_machine = apq8064_cdp_init,
-	.init_early = apq8064_allocate_memory_regions,
-	.init_very_early = apq8064_early_reserve,
-	.restart = msm_restart,
-MACHINE_END
-
-MACHINE_START(MPQ8064_HRD, "QCT MPQ8064 HRD")
-	.map_io = apq8064_map_io,
-	.reserve = apq8064_reserve,
-	.init_irq = apq8064_init_irq,
-	.handle_irq = gic_handle_irq,
-	.timer = &msm_timer,
-	.init_machine = apq8064_cdp_init,
-	.init_early = apq8064_allocate_memory_regions,
-	.init_very_early = apq8064_early_reserve,
-	.restart = msm_restart,
-MACHINE_END
-
-MACHINE_START(MPQ8064_DTV, "QCT MPQ8064 DTV")
-	.map_io = apq8064_map_io,
-	.reserve = apq8064_reserve,
-	.init_irq = apq8064_init_irq,
-	.handle_irq = gic_handle_irq,
-	.timer = &msm_timer,
-	.init_machine = apq8064_cdp_init,
-	.init_early = apq8064_allocate_memory_regions,
-	.init_very_early = apq8064_early_reserve,
-	.restart = msm_restart,
-MACHINE_END
-
