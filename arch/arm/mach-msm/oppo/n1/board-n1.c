@@ -90,6 +90,14 @@
 #include "smd_private.h"
 #include "sysmon.h"
 
+#include <linux/nfc/pn544.h>
+#include <linux/pcb_version.h>
+#include <linux/persistent_ram.h>
+#include <linux/power/smb358_charger.h>
+#include <linux/regulator/consumer.h>
+#include <linux/synaptics_i2c_rmi.h>
+#include <linux/y8c20x66a_i2c_rmi.h>
+
 #define MSM_PMEM_ADSP_SIZE         0x7800000
 #define MSM_PMEM_AUDIO_SIZE        0x4CF000
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
