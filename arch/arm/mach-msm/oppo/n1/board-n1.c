@@ -1923,6 +1923,25 @@ static struct msm_thermal_data msm_thermal_pdata = {
 	.core_control_mask = 0xe,
 };
 
+static struct platform_device ram_console_device = {
+	.name = "ram_console",
+	.id = -1,
+};
+
+static struct persistent_ram_descriptor msm_prd[] __initdata = {
+	{
+		.name = "ram_console",
+		.size = SZ_1M,
+	},
+};
+
+static struct persistent_ram msm_pr __initdata = {
+	.descs = msm_prd,
+	.num_descs = ARRAY_SIZE(msm_prd),
+	.start = 0xE0200000,
+	.size = SZ_1M,
+};
+
 #define MSM_SHARED_RAM_PHYS 0x80000000
 static void __init apq8064_map_io(void)
 {
@@ -2411,6 +2430,7 @@ static struct platform_device *common_not_mpq_devices[] __initdata = {
 };
 
 static struct platform_device *early_common_devices[] __initdata = {
+	&ram_console_device,
 	&apq8064_device_acpuclk,
 	&apq8064_device_dmov,
 	&apq8064_device_qup_spi_gsbi5,
@@ -3379,6 +3399,7 @@ static void __init apq8064_common_init(void)
 static void __init apq8064_allocate_memory_regions(void)
 {
 	apq8064_allocate_fb_region();
+	persistent_ram_early_init(&msm_pr);
 }
 
 static void __init apq8064_cdp_init(void)
