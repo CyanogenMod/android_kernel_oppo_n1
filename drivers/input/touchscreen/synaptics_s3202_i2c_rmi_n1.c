@@ -2418,7 +2418,9 @@ firmware_update:
 		{
 		    print_ts(TS_ERROR, "start to update firmware\n");
             force_update = 0;
+#if 0
 			display_rle_file(TP_UPDATE_RLE_FILE);
+#endif
 			CompleteReflash(client, fw_update_data);
 			goto detect_device;
 		}
