@@ -141,6 +141,9 @@ struct msm_camera_sensor_flash_src {
 		struct msm_camera_sensor_flash_external
 			ext_driver_src;
 		struct msm_camera_sensor_flash_led led_src;
+#ifdef CONFIG_MACH_OPPO
+		struct msm_camera_sensor_flash_oppo oppo_src;
+#endif
 	} _fsrc;
 };
 
