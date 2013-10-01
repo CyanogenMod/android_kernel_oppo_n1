@@ -26,7 +26,7 @@
 #include <mach/socinfo.h>
 
 #include "devices.h"
-#include "board-8064.h"
+#include "board-n1.h"
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 /* prim = 1366 x 768 x 3(bpp) x 3(pages) */
@@ -61,6 +61,8 @@ static struct resource msm_fb_resources[] = {
 #define LVDS_FRC_PANEL_NAME "lvds_frc_fhd"
 #define MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME "mipi_video_toshiba_wsvga"
 #define MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME "mipi_video_chimei_wxga"
+#define MIPI_VIDEO_ORISE_720P_PANEL_NAME    "mipi_video_orise_720p"
+#define MIPI_CMD_ORISE_720P_PANEL_NAME  "mipi_cmd_orise_720p"
 #define HDMI_PANEL_NAME "hdmi_msm"
 #define MHL_PANEL_NAME "hdmi_msm,mhl_8334"
 #define TVOUT_PANEL_NAME "tvout_msm"
@@ -90,38 +92,10 @@ static void set_mdp_clocks_for_wuxga(void);
 
 static int msm_fb_detect_panel(const char *name)
 {
-	u32 version;
-	if (machine_is_apq8064_liquid()) {
-		version = socinfo_get_platform_version();
-		if ((SOCINFO_VERSION_MAJOR(version) == 1) &&
-			(SOCINFO_VERSION_MINOR(version) == 1)) {
-			if (!strncmp(name, MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
-				strnlen(MIPI_VIDEO_CHIMEI_WXGA_PANEL_NAME,
-					PANEL_NAME_MAX_LEN)))
-				return 0;
-		} else {
-			if (!strncmp(name, LVDS_CHIMEI_PANEL_NAME,
-				strnlen(LVDS_CHIMEI_PANEL_NAME,
-					PANEL_NAME_MAX_LEN)))
-				return 0;
-		}
-	} else if (machine_is_apq8064_mtp()) {
-		if (!strncmp(name, MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
-			strnlen(MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME,
-				PANEL_NAME_MAX_LEN)))
-			return 0;
-	} else if (machine_is_apq8064_cdp()) {
-		if (!strncmp(name, LVDS_CHIMEI_PANEL_NAME,
-			strnlen(LVDS_CHIMEI_PANEL_NAME,
-				PANEL_NAME_MAX_LEN)))
-			return 0;
-	} else if (machine_is_mpq8064_dtv()) {
-		if (!strncmp(name, LVDS_FRC_PANEL_NAME,
-			strnlen(LVDS_FRC_PANEL_NAME,
-			PANEL_NAME_MAX_LEN))) {
-			set_mdp_clocks_for_wuxga();
-			return 0;
-		}
+	if (!strncmp(name, MIPI_CMD_ORISE_720P_PANEL_NAME,
+			strnlen(MIPI_CMD_ORISE_720P_PANEL_NAME,
+				PANEL_NAME_MAX_LEN))) {
+		return 0;
 	}
 
 	if (!strncmp(name, HDMI_PANEL_NAME,
@@ -131,7 +105,6 @@ static int msm_fb_detect_panel(const char *name)
 			set_mdp_clocks_for_wuxga();
 		return 0;
 	}
-
 
 	return -ENODEV;
 }
@@ -258,7 +231,15 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mem_hid = MEMTYPE_EBI1,
 #endif
 	.mdp_iommu_split_domain = 1,
+	.cont_splash_enabled = 0x00,
+	.splash_screen_addr = 0x00,
+	.splash_screen_size = 0x00,
 };
+
+static char mipi_dsi_splash_is_enabled(void)
+{
+	return mdp_pdata.cont_splash_enabled;
+}
 
 void __init apq8064_mdp_writeback(struct memtype_reserve* reserve_table)
 {
@@ -348,11 +329,19 @@ static struct platform_device wfd_device = {
 #define HDMI_DDC_DATA_GPIO	71
 #define HDMI_HPD_GPIO		72
 
+enum {
+	PANEL_OFF,
+	PANEL_ON,
+	PANEL_SLEEP,
+	PANEL_RESUME,
+};
+
 static bool dsi_power_on;
 static int mipi_dsi_panel_power(int on)
 {
-	static struct regulator *reg_lvs7, *reg_l2, *reg_l11, *reg_ext_3p3v;
-	static int gpio36, gpio25, gpio26, mpp3;
+	static struct regulator *reg_lvs7, *reg_l2, *reg_l11, *reg_l22,
+				*reg_ext_3p3v;
+	static int gpio36, gpio25, mpp3;
 	int rc;
 
 	pr_debug("%s: on=%d\n", __func__, on);
@@ -386,10 +375,22 @@ static int mipi_dsi_panel_power(int on)
 						PTR_ERR(reg_l11));
 				return -ENODEV;
 		}
-		rc = regulator_set_voltage(reg_l11, 3000000, 3000000);
+		rc = regulator_set_voltage(reg_l11, 3100000, 3100000);
 		if (rc) {
 				pr_err("set_voltage l11 failed, rc=%d\n", rc);
 				return -EINVAL;
+		}
+
+		reg_l22 = regulator_get(NULL, "8921_l22");
+		if (IS_ERR(reg_l22)) {
+			pr_err("could not get 8921_l22, rc = %ld\n",
+					PTR_ERR(reg_l22));
+			return -ENODEV;
+		}
+		rc = regulator_set_voltage(reg_l22, 1800000, 1800000);
+		if (rc) {
+			pr_err("set_voltage l22 failed, rc=%d\n", rc);
+			return -EINVAL;
 		}
 
 		if (machine_is_apq8064_liquid()) {
@@ -416,13 +417,6 @@ static int mipi_dsi_panel_power(int on)
 			return -ENODEV;
 		}
 
-		gpio26 = PM8921_GPIO_PM_TO_SYS(26);
-		rc = gpio_request(gpio26, "pwm_backlight_ctrl");
-		if (rc) {
-			pr_err("request gpio 26 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
 		gpio36 = PM8921_GPIO_PM_TO_SYS(36); /* lcd1_pwr_en_n */
 		rc = gpio_request(gpio36, "lcd1_pwr_en_n");
 		if (rc) {
@@ -430,15 +424,37 @@ static int mipi_dsi_panel_power(int on)
 			return -ENODEV;
 		}
 
+		rc = gpio_request(LCD_5V_EN_DVT, "lcd_5v_en");
+		if (rc) {
+			pr_err("request gpio 86 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+
 		dsi_power_on = true;
 	}
 
-	if (on) {
+	if (on == PANEL_ON) {
 		rc = regulator_enable(reg_lvs7);
 		if (rc) {
 			pr_err("enable lvs7 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
+		rc = regulator_enable(reg_l22); //1.8v
+		if (rc) {
+			pr_err("enable l22 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+		mdelay(5);
+
+		rc = gpio_direction_output(LCD_5V_EN_DVT, 1);//5v
+		if (rc) {
+			pr_err("%s: unable to enable LCD_5V_EN!!!!!!!!!!!!\n", __func__);
+			return -ENODEV;
+		}
+		mdelay(5);
+
+		gpio_set_value_cansleep(gpio36, 0);
+		gpio_set_value_cansleep(gpio25, 1);
 
 		rc = regulator_set_optimum_mode(reg_l11, 110000);
 		if (rc < 0) {
@@ -474,11 +490,13 @@ static int mipi_dsi_panel_power(int on)
 
 		gpio_set_value_cansleep(gpio36, 0);
 		gpio_set_value_cansleep(gpio25, 1);
-		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
-			gpio_set_value_cansleep(gpio26, 1);
+	} else if (on == PANEL_RESUME) {
+		gpio_set_value_cansleep(gpio25, 0);
+		mdelay(10);
+		gpio_set_value_cansleep(gpio25, 1);
+	} else if (on == PANEL_SLEEP) {
+		return 0;
 	} else {
-		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
-			gpio_set_value_cansleep(gpio26, 0);
 		gpio_set_value_cansleep(gpio25, 0);
 		gpio_set_value_cansleep(gpio36, 1);
 
@@ -499,6 +517,21 @@ static int mipi_dsi_panel_power(int on)
 			return -ENODEV;
 		}
 
+		mdelay(5);
+		rc = gpio_direction_output(LCD_5V_EN_DVT, 0);
+
+		if (rc) {
+			pr_err("%s: unable to enable LCD_5V_EN!!!!!!!!!!!!\n", __func__);
+			return -ENODEV;
+		}
+
+		mdelay(10);
+		rc = regulator_disable(reg_l22);
+		if (rc) {
+			pr_err("disable reg_l22 failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
+
 		rc = regulator_disable(reg_lvs7);
 		if (rc) {
 			pr_err("disable reg_lvs7 failed, rc=%d\n", rc);
@@ -510,6 +543,8 @@ static int mipi_dsi_panel_power(int on)
 			pr_err("disable reg_l2 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
+
+		gpio_set_value_cansleep(gpio36, 0);
 	}
 
 	return 0;
@@ -517,204 +552,21 @@ static int mipi_dsi_panel_power(int on)
 
 static struct mipi_dsi_platform_data mipi_dsi_pdata = {
 	.dsi_power_save = mipi_dsi_panel_power,
-};
-
-static bool lvds_power_on;
-static int lvds_panel_power(int on)
-{
-	static struct regulator *reg_lvs7, *reg_l2, *reg_ext_3p3v;
-	static int gpio36, gpio26, mpp3;
-	int rc;
-
-	pr_debug("%s: on=%d\n", __func__, on);
-
-	if (!lvds_power_on) {
-		reg_lvs7 = regulator_get(&msm_lvds_device.dev,
-				"lvds_vdda");
-		if (IS_ERR_OR_NULL(reg_lvs7)) {
-			pr_err("could not get 8921_lvs7, rc = %ld\n",
-				PTR_ERR(reg_lvs7));
-			return -ENODEV;
-		}
-
-		reg_l2 = regulator_get(&msm_lvds_device.dev,
-				"lvds_pll_vdda");
-		if (IS_ERR_OR_NULL(reg_l2)) {
-			pr_err("could not get 8921_l2, rc = %ld\n",
-				PTR_ERR(reg_l2));
-			return -ENODEV;
-		}
-
-		rc = regulator_set_voltage(reg_l2, 1200000, 1200000);
-		if (rc) {
-			pr_err("set_voltage l2 failed, rc=%d\n", rc);
-			return -EINVAL;
-		}
-
-		reg_ext_3p3v = regulator_get(&msm_lvds_device.dev,
-			"lvds_vccs_3p3v");
-		if (IS_ERR_OR_NULL(reg_ext_3p3v)) {
-			pr_err("could not get reg_ext_3p3v, rc = %ld\n",
-			       PTR_ERR(reg_ext_3p3v));
-		    return -ENODEV;
-		}
-
-		gpio26 = PM8921_GPIO_PM_TO_SYS(26);
-		rc = gpio_request(gpio26, "pwm_backlight_ctrl");
-		if (rc) {
-			pr_err("request gpio 26 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		gpio36 = PM8921_GPIO_PM_TO_SYS(36); /* lcd1_pwr_en_n */
-		rc = gpio_request(gpio36, "lcd1_pwr_en_n");
-		if (rc) {
-			pr_err("request gpio 36 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		mpp3 = PM8921_MPP_PM_TO_SYS(3);
-		rc = gpio_request(mpp3, "backlight_en");
-		if (rc) {
-			pr_err("request mpp3 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		lvds_power_on = true;
-	}
-
-	if (on) {
-		rc = regulator_enable(reg_lvs7);
-		if (rc) {
-			pr_err("enable lvs7 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		rc = regulator_set_optimum_mode(reg_l2, 100000);
-		if (rc < 0) {
-			pr_err("set_optimum_mode l2 failed, rc=%d\n", rc);
-			return -EINVAL;
-		}
-		rc = regulator_enable(reg_l2);
-		if (rc) {
-			pr_err("enable l2 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		rc = regulator_enable(reg_ext_3p3v);
-		if (rc) {
-			pr_err("enable reg_ext_3p3v failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-
-		gpio_set_value_cansleep(gpio36, 0);
-		gpio_set_value_cansleep(mpp3, 1);
-		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
-			gpio_set_value_cansleep(gpio26, 1);
-	} else {
-		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
-			gpio_set_value_cansleep(gpio26, 0);
-		gpio_set_value_cansleep(mpp3, 0);
-		gpio_set_value_cansleep(gpio36, 1);
-
-		rc = regulator_disable(reg_lvs7);
-		if (rc) {
-			pr_err("disable reg_lvs7 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-		rc = regulator_disable(reg_l2);
-		if (rc) {
-			pr_err("disable reg_l2 failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-		rc = regulator_disable(reg_ext_3p3v);
-		if (rc) {
-			pr_err("disable reg_ext_3p3v failed, rc=%d\n", rc);
-			return -ENODEV;
-		}
-	}
-
-	return 0;
-}
-
-static int lvds_pixel_remap(void)
-{
-	u32 ver = socinfo_get_version();
-
-	if (machine_is_apq8064_cdp() ||
-	    machine_is_apq8064_liquid()) {
-		if ((SOCINFO_VERSION_MAJOR(ver) == 1) &&
-		    (SOCINFO_VERSION_MINOR(ver) == 0))
-			return LVDS_PIXEL_MAP_PATTERN_1;
-	} else if (machine_is_mpq8064_dtv()) {
-		if ((SOCINFO_VERSION_MAJOR(ver) == 1) &&
-		    (SOCINFO_VERSION_MINOR(ver) == 0))
-			return LVDS_PIXEL_MAP_PATTERN_2;
-	}
-	return 0;
-}
-
-static struct lcdc_platform_data lvds_pdata = {
-	.lcdc_power_save = lvds_panel_power,
-	.lvds_pixel_remap = lvds_pixel_remap
+	.splash_is_enabled = mipi_dsi_splash_is_enabled,
 };
 
 #define LPM_CHANNEL 2
-static int lvds_chimei_gpio[] = {LPM_CHANNEL};
 
-static struct lvds_panel_platform_data lvds_chimei_pdata = {
-	.gpio = lvds_chimei_gpio,
+static int orise_gpio[] = {LPM_CHANNEL};
+static struct mipi_dsi_panel_platform_data orise_pdata = {
+	.gpio = orise_gpio,
 };
 
-static struct platform_device lvds_chimei_panel_device = {
-	.name = "lvds_chimei_wxga",
+static struct platform_device mipi_dsi_orise_panel_device = {
+	.name = "mipi_orise",
 	.id = 0,
 	.dev = {
-		.platform_data = &lvds_chimei_pdata,
-	}
-};
-
-#define FRC_GPIO_UPDATE	(SX150X_EXP4_GPIO_BASE + 8)
-#define FRC_GPIO_RESET	(SX150X_EXP4_GPIO_BASE + 9)
-#define FRC_GPIO_PWR	(SX150X_EXP4_GPIO_BASE + 10)
-
-static int lvds_frc_gpio[] = {FRC_GPIO_UPDATE, FRC_GPIO_RESET, FRC_GPIO_PWR};
-static struct lvds_panel_platform_data lvds_frc_pdata = {
-	.gpio = lvds_frc_gpio,
-};
-
-static struct platform_device lvds_frc_panel_device = {
-	.name = "lvds_frc_fhd",
-	.id = 0,
-	.dev = {
-		.platform_data = &lvds_frc_pdata,
-	}
-};
-
-static int dsi2lvds_gpio[2] = {
-	LPM_CHANNEL,/* Backlight PWM-ID=0 for PMIC-GPIO#24 */
-	0x1F08 /* DSI2LVDS Bridge GPIO Output, mask=0x1f, out=0x08 */
-};
-static struct msm_panel_common_pdata mipi_dsi2lvds_pdata = {
-	.gpio_num = dsi2lvds_gpio,
-};
-
-static struct platform_device mipi_dsi2lvds_bridge_device = {
-	.name = "mipi_tc358764",
-	.id = 0,
-	.dev.platform_data = &mipi_dsi2lvds_pdata,
-};
-
-static int toshiba_gpio[] = {LPM_CHANNEL};
-static struct mipi_dsi_panel_platform_data toshiba_pdata = {
-	.gpio = toshiba_gpio,
-};
-
-static struct platform_device mipi_dsi_toshiba_panel_device = {
-	.name = "mipi_toshiba",
-	.id = 0,
-	.dev = {
-			.platform_data = &toshiba_pdata,
+			.platform_data = &orise_pdata,
 	}
 };
 
@@ -1012,22 +864,15 @@ error:
 void __init apq8064_init_fb(void)
 {
 	platform_device_register(&msm_fb_device);
-	platform_device_register(&lvds_chimei_panel_device);
 
 #ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
 	platform_device_register(&wfd_panel_device);
 	platform_device_register(&wfd_device);
 #endif
 
-	if (machine_is_apq8064_liquid())
-		platform_device_register(&mipi_dsi2lvds_bridge_device);
-	if (machine_is_apq8064_mtp())
-		platform_device_register(&mipi_dsi_toshiba_panel_device);
-	if (machine_is_mpq8064_dtv())
-		platform_device_register(&lvds_frc_panel_device);
+	platform_device_register(&mipi_dsi_orise_panel_device);
 
 	msm_fb_register_device("mdp", &mdp_pdata);
-	msm_fb_register_device("lvds", &lvds_pdata);
 	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
 	platform_device_register(&hdmi_msm_device);
 	msm_fb_register_device("dtv", &dtv_pdata);

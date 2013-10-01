@@ -53,6 +53,9 @@
 #define APQ_NFC_FIRM_GPIO_N1		31 // NFC_UPDATE
 #define APQ_NFC_IRQ_GPIO		55 // NFC_IRQ
 
+#define LCD_5V_EN			85
+#define LCD_5V_EN_DVT			81
+
 /* Macros assume PMIC GPIOs and MPPs start at 1 */
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
 #define PM8921_GPIO_PM_TO_SYS(pm_gpio)	(pm_gpio - 1 + PM8921_GPIO_BASE)
