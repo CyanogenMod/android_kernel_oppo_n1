@@ -342,6 +342,24 @@ ktime_t alarm_get_elapsed_realtime(void)
 	return now;
 }
 
+#ifdef CONFIG_MACH_OPPO
+int
+alarm_read_rtc_time(struct rtc_time *tm)
+{
+	int ret = 0;
+
+	wake_lock(&alarm_rtc_wake_lock);
+	ret = rtc_read_time(alarm_rtc_dev, tm);
+	if (ret < 0) {
+		pr_alarm(ERROR, "%s: Failed to read RTC time", __func__);
+	}
+
+	wake_unlock(&alarm_rtc_wake_lock);
+	return ret;
+}
+EXPORT_SYMBOL(alarm_read_rtc_time);
+#endif
+
 static enum hrtimer_restart alarm_timer_triggered(struct hrtimer *timer)
 {
 	struct alarm_queue *base;
