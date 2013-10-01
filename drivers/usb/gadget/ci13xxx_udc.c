@@ -3611,6 +3611,9 @@ static int ci13xxx_stop(struct usb_gadget_driver *driver)
  * This function returns IRQ_HANDLED if the IRQ has been handled
  * It locks access to registers
  */
+#ifdef CONFIG_MACH_OPPO
+extern void cancel_nonstandard_worker_fn(char *fn_str);
+#endif
 static irqreturn_t udc_irq(void)
 {
 	struct ci13xxx *udc = _udc;
@@ -3642,6 +3645,9 @@ static irqreturn_t udc_irq(void)
 		/* order defines priority - do NOT change it */
 		if (USBi_URI & intr) {
 			isr_statistics.uri++;
+#ifdef CONFIG_MACH_OPPO
+			cancel_nonstandard_worker_fn("udc_irq");
+#endif
 			isr_reset_handler(udc);
 		}
 		if (USBi_PCI & intr) {

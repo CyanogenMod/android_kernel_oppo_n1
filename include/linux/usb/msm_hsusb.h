@@ -87,7 +87,11 @@ enum msm_usb_phy_type {
 	SNPS_28NM_INTEGRATED_PHY,
 };
 
+#ifdef CONFIG_MACH_OPPO
+#define IDEV_CHG_MAX	1100
+#else
 #define IDEV_CHG_MAX	1500
+#endif
 #define IDEV_CHG_MIN	500
 #define IUNIT		100
 
@@ -145,6 +149,10 @@ enum usb_chg_type {
 	USB_INVALID_CHARGER = 0,
 	USB_SDP_CHARGER,
 	USB_DCP_CHARGER,
+#ifdef CONFIG_MACH_OPPO
+	USB_NON_DCP_CHARGER,
+	USB_HDMI_CHARGER,
+#endif
 	USB_CDP_CHARGER,
 	USB_ACA_A_CHARGER,
 	USB_ACA_B_CHARGER,
@@ -329,6 +337,9 @@ struct msm_otg {
 	struct delayed_work chg_work;
 	struct delayed_work pmic_id_status_work;
 	struct delayed_work check_ta_work;
+#ifdef CONFIG_MACH_OPPO
+	struct delayed_work nonstandard_detect_work;
+#endif
 	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;
 	unsigned dcd_time;

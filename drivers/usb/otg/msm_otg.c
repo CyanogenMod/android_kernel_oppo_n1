@@ -37,7 +37,11 @@
 #include <linux/usb/msm_hsusb.h>
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/regulator/consumer.h>
+#ifdef CONFIG_MACH_OPPO
+#include <linux/mfd/pm8xxx/pm8921-charger-oppo.h>
+#else
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
+#endif
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/power_supply.h>
 #include <linux/mhl_8334.h>
@@ -50,6 +54,11 @@
 #include <mach/msm_xo.h>
 #include <mach/msm_bus.h>
 #include <mach/rpm-regulator.h>
+
+#ifdef CONFIG_MACH_OPPO
+#include <linux/power/smb358_charger.h>
+#include <linux/pcb_version.h>
+#endif
 
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"
@@ -69,6 +78,37 @@
 #define USB_PHY_VDD_DIG_VOL_NONE	0 /*uV */
 #define USB_PHY_VDD_DIG_VOL_MIN	1045000 /* uV */
 #define USB_PHY_VDD_DIG_VOL_MAX	1320000 /* uV */
+
+#ifdef CONFIG_MACH_OPPO
+extern int pm8921_chg_connected(enum usb_chg_type chg_type);
+struct completion chg_detect_wait;
+
+#define USB_NONSTANDARD_DET_DELAY	msecs_to_jiffies(1500)
+static int cancel_nonstandard_worker = 0;
+
+void cancel_nonstandard_worker_fn(char *fn_str)
+{
+	pr_err("%s:called from fun :%s\n", __func__,fn_str);
+	if (cancel_nonstandard_worker)
+		return;
+	else
+		cancel_nonstandard_worker = 1;
+}
+
+void enable_nonstandard_worker_fn(char *fn_str)
+{
+	pr_err("%s:called from fun :%s\n", __func__, fn_str);
+	if (!cancel_nonstandard_worker)
+		return;
+	else
+		cancel_nonstandard_worker = 0;
+}
+
+bool is_nonstandard_worker_canceled(void)
+{
+	return cancel_nonstandard_worker ? true : false;
+}
+#endif
 
 static DECLARE_COMPLETION(pmic_vbus_init);
 static struct msm_otg *the_msm_otg;
@@ -1095,7 +1135,11 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 	else
 		charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
 
+#ifdef CONFIG_MACH_OPPO
+	return 0;
+#else
 	return pm8921_set_usb_power_supply_type(charger_type);
+#endif
 }
 
 static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned mA)
@@ -1139,6 +1183,11 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 			mA > IDEV_ACA_CHG_LIMIT)
 		mA = IDEV_ACA_CHG_LIMIT;
 
+#ifdef CONFIG_MACH_OPPO
+	if (motg->chg_type == USB_SDP_CHARGER)
+		mA = IDEV_CHG_MIN;
+#endif
+
 	if (msm_otg_notify_chg_type(motg))
 		dev_err(motg->phy.dev,
 			"Failed notifying %d charger type to PMIC\n",
@@ -1162,6 +1211,14 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 static int msm_otg_set_power(struct usb_phy *phy, unsigned mA)
 {
 	struct msm_otg *motg = container_of(phy, struct msm_otg, phy);
+
+#ifdef CONFIG_MACH_OPPO
+	cancel_nonstandard_worker_fn("msm_otg_set_power");
+	if (motg->chg_type != USB_SDP_CHARGER) {
+		motg->chg_type = USB_SDP_CHARGER;
+		smb358_charger_connected(CHARGER_TYPE__SDP);
+	}
+#endif
 
 	/*
 	 * Gadget driver uses set_power method to notify about the
@@ -1319,6 +1376,9 @@ static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
 	 * current from the source.
 	 */
 	if (on) {
+#ifdef CONFIG_MACH_OPPO
+		smb358_charger_connected(CHARGER_TYPE__OTG);
+#endif
 		msm_otg_notify_host_mode(motg, on);
 		ret = regulator_enable(vbus_otg);
 		if (ret) {
@@ -1327,6 +1387,9 @@ static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
 		}
 		vbus_is_on = true;
 	} else {
+#ifdef CONFIG_MACH_OPPO
+		smb358_charger_connected(CHARGER_TYPE__INVALID);
+#endif
 		ret = regulator_disable(vbus_otg);
 		if (ret) {
 			pr_err("unable to disable vbus_otg\n");
@@ -1652,6 +1715,9 @@ static bool msm_chg_aca_detect(struct msm_otg *motg)
 			dev_dbg(phy->dev, "ID_GND\n");
 			motg->chg_type = USB_INVALID_CHARGER;
 			motg->chg_state = USB_CHG_STATE_UNDEFINED;
+#ifdef CONFIG_MACH_OPPO
+			smb358_charger_connected(CHARGER_TYPE__INVALID);
+#endif
 			clear_bit(ID_A, &motg->inputs);
 			clear_bit(ID_B, &motg->inputs);
 			clear_bit(ID_C, &motg->inputs);
@@ -2035,6 +2101,7 @@ static const char *chg_to_string(enum usb_chg_type chg_type)
 #define PORTSC_LS  (3 << 10) /* Read - Port's Line status */
 static void msm_ta_detect_work(struct work_struct *w)
 {
+#ifndef CONFIG_MACH_OPPO
 	struct msm_otg *motg = container_of(w, struct msm_otg, check_ta_work.work);
 	struct usb_otg *otg = motg->phy.otg;
 
@@ -2059,6 +2126,7 @@ static void msm_ta_detect_work(struct work_struct *w)
 		return;
 	}
 	schedule_delayed_work(&motg->check_ta_work, MSM_CHECK_TA_DELAY);
+#endif
 }
 
 #define MSM_CHG_DCD_TIMEOUT		(750 * HZ/1000) /* 750 msec */
@@ -2197,6 +2265,54 @@ static void msm_chg_detect_work(struct work_struct *w)
 	queue_delayed_work(system_nrt_wq, &motg->chg_work, delay);
 }
 
+#ifdef CONFIG_MACH_OPPO
+extern bool is_usb_dc_plugged_in(void);
+
+static void nonstandard_detect_work(struct work_struct *w)
+{
+	struct msm_otg *motg = container_of(w, struct msm_otg, nonstandard_detect_work.work);
+
+	pr_info("%s,%d\n", __func__,cancel_nonstandard_worker);
+
+	if (false == is_nonstandard_worker_canceled()) {
+		if (!wait_for_completion_timeout(&chg_detect_wait,
+					msecs_to_jiffies(700))) {
+			pr_info("Timed out waiting for HDMI wait\n");
+			motg->chg_type = USB_NON_DCP_CHARGER;
+		} else {
+			pr_info("waiting for HDMI IRQ\n");
+			motg->chg_type = USB_HDMI_CHARGER;
+		}
+		if (false == is_usb_dc_plugged_in()) {
+			motg->chg_type = USB_INVALID_CHARGER;
+			msm_otg_notify_charger(motg, 0);
+			smb358_charger_connected(CHARGER_TYPE__INVALID);
+			goto out;
+		}
+		msm_otg_notify_charger(motg, IDEV_CHG_MIN);
+		if (motg->chg_type == USB_NON_DCP_CHARGER)
+			smb358_charger_connected(CHARGER_TYPE__NON_DCP);
+		else
+			smb358_charger_connected(CHARGER_TYPE__HDMI);
+	} else if (motg->chg_type != USB_SDP_CHARGER) {
+		pr_err("%s:usb seems not enumerated yet in time,but we got info from udc_irq that it is usb charger \n", __func__);
+		motg->chg_type = USB_SDP_CHARGER;
+		msm_otg_notify_charger(motg, IDEV_CHG_MIN);
+		smb358_charger_connected(CHARGER_TYPE__SDP);
+		goto out;
+	}
+out:
+	enable_nonstandard_worker_fn("nonstandard_detect_work");
+}
+
+void cancel_charger_type_detect_work(void)
+{
+	struct msm_otg *motg = the_msm_otg;
+	cancel_delayed_work_sync(&motg->nonstandard_detect_work);
+	cancel_delayed_work_sync(&motg->chg_work);
+}
+#endif
+
 /*
  * We support OTG, Peripheral only and Host only configurations. In case
  * of OTG, mode switch (host-->peripheral/peripheral-->host) can happen
@@ -2323,12 +2439,18 @@ static void msm_otg_sm_work(struct work_struct *w)
 				case USB_DCP_CHARGER:
 					/* Enable VDP_SRC */
 					ulpi_write(otg->phy, 0x2, 0x85);
+#ifdef CONFIG_MACH_OPPO
+					smb358_charger_connected(CHARGER_TYPE__DCP);
+#endif
 					/* fall through */
 				case USB_PROPRIETARY_CHARGER:
 					msm_otg_notify_charger(motg,
 							IDEV_CHG_MAX);
 					pm_runtime_put_noidle(otg->phy->dev);
 					pm_runtime_suspend(otg->phy->dev);
+#ifdef CONFIG_MACH_OPPO
+					smb358_charger_connected(CHARGER_TYPE__DCP);
+#endif
 					break;
 				case USB_ACA_B_CHARGER:
 					msm_otg_notify_charger(motg,
@@ -2358,6 +2480,12 @@ static void msm_otg_sm_work(struct work_struct *w)
 						otg->phy->state =
 							OTG_STATE_B_PERIPHERAL;
 					}
+#ifdef CONFIG_MACH_OPPO
+					motg->chg_type = USB_NON_DCP_CHARGER;
+					cancel_delayed_work_sync(&motg->nonstandard_detect_work);
+					schedule_delayed_work(&motg->nonstandard_detect_work,
+							USB_NONSTANDARD_DET_DELAY);
+#endif
 					schedule_delayed_work(&motg->check_ta_work,
 						MSM_CHECK_TA_DELAY);
 					break;
@@ -2386,6 +2514,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 			motg->chg_state = USB_CHG_STATE_UNDEFINED;
 			motg->chg_type = USB_INVALID_CHARGER;
 			msm_otg_notify_charger(motg, 0);
+#ifdef CONFIG_MACH_OPPO
+			smb358_charger_connected(CHARGER_TYPE__INVALID);
+#endif
 			msm_otg_reset(otg->phy);
 			/*
 			 * There is a small window where ID interrupt
@@ -3717,6 +3848,9 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_DELAYED_WORK(&motg->chg_work, msm_chg_detect_work);
 	INIT_DELAYED_WORK(&motg->pmic_id_status_work, msm_pmic_id_status_w);
+#ifdef CONFIG_MACH_OPPO
+	INIT_DELAYED_WORK(&motg->nonstandard_detect_work, nonstandard_detect_work);
+#endif
 	INIT_DELAYED_WORK(&motg->check_ta_work, msm_ta_detect_work);
 	setup_timer(&motg->id_timer, msm_otg_id_timer_func,
 				(unsigned long) motg);
@@ -3787,6 +3921,10 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (ret)
 		dev_dbg(&pdev->dev, "mode debugfs file is"
 			"not available\n");
+
+#ifdef CONFIG_MACH_OPPO
+	init_completion(&chg_detect_wait);
+#endif
 
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
 		pm8921_charger_register_vbus_sn(&msm_otg_set_vbus_state);
