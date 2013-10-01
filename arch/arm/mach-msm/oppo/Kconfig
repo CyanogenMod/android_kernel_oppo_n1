@@ -1,0 +1,12 @@
+config MACH_OPPO
+	bool
+	depends on ARCH_APQ8064
+	select FB_MSM_MIPI_DSI
+
+menu "Oppo board selection"
+source "arch/arm/mach-msm/oppo/Kconfig.board"
+endmenu
+
+menu "Oppo specific options"
+
+endmenu

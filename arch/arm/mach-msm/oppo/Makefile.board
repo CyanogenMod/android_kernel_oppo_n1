@@ -1,0 +1,6 @@
+#
+# Makefile for HTC board
+#
+
+# N1
+obj-$(CONFIG_MACH_OPPO) += n1/

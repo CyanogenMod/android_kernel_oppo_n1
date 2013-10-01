@@ -1,0 +1,6 @@
+#
+# Include the specific Kconfig file for Oppo boards
+#
+
+# N1
+source "arch/arm/mach-msm/oppo/n1/Kconfig"

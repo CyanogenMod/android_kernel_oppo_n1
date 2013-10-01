@@ -1,0 +1,6 @@
+config MACH_N1
+	depends on ARCH_MSM8960
+	select MACH_OPPO
+	bool "Oppo N1"
+	help
+	  Support for Oppo N1 device
