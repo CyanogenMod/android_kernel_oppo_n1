@@ -9,4 +9,10 @@ endmenu
 
 menu "Oppo specific options"
 
+config OPPO_TRACE
+	tristate "Oppo trace driver"
+	default n
+	help
+	  Oppo trace driver.
+
 endmenu
