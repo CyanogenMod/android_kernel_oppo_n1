@@ -109,6 +109,9 @@ struct bms_battery_data {
 	defined(CONFIG_PM8921_BMS_OPPO_MODULE)
 extern struct bms_battery_data  palladium_1500_data;
 extern struct bms_battery_data  desay_5200_data;
+#ifdef CONFIG_MACH_OPPO
+extern struct bms_battery_data  OPPO_palladium_2500mAh_data;
+#endif
 
 int interpolate_fcc(struct single_row_lut *fcc_temp_lut, int batt_temp);
 int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc);
