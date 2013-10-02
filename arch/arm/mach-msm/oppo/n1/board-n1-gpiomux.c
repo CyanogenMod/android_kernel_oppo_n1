@@ -25,6 +25,10 @@
 #include "devices.h"
 #include "board-n1.h"
 
+/* Oppo re-uses APQ8064_MTP machine ID */
+#undef machine_is_apq8064_mtp
+#define machine_is_apq8064_mtp() (1)
+
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 static struct gpiomux_setting gpio_eth_config = {
 	.pull = GPIOMUX_PULL_NONE,

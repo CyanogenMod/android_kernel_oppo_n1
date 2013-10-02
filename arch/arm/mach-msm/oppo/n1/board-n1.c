@@ -98,6 +98,10 @@
 #include <linux/synaptics_i2c_rmi.h>
 #include <linux/y8c20x66a_i2c_rmi.h>
 
+/* Oppo re-uses APQ8064_MTP machine ID */
+#undef machine_is_apq8064_mtp
+#define machine_is_apq8064_mtp() (1)
+
 #define MSM_PMEM_ADSP_SIZE         0x7800000
 #define MSM_PMEM_AUDIO_SIZE        0x4CF000
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY

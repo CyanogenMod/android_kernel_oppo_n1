@@ -30,6 +30,10 @@
 #include "devices.h"
 #include "board-n1.h"
 
+/* Oppo re-uses APQ8064_MTP machine ID */
+#undef machine_is_apq8064_mtp
+#define machine_is_apq8064_mtp() (1)
+
 struct pm8xxx_gpio_init {
 	unsigned			gpio;
 	struct pm_gpio			config;
