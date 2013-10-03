@@ -2446,11 +2446,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 				case USB_PROPRIETARY_CHARGER:
 					msm_otg_notify_charger(motg,
 							IDEV_CHG_MAX);
-					pm_runtime_put_noidle(otg->phy->dev);
-					pm_runtime_suspend(otg->phy->dev);
 #ifdef CONFIG_MACH_OPPO
 					smb358_charger_connected(CHARGER_TYPE__DCP);
 #endif
+					pm_runtime_put_noidle(otg->phy->dev);
+					pm_runtime_suspend(otg->phy->dev);
 					break;
 				case USB_ACA_B_CHARGER:
 					msm_otg_notify_charger(motg,
