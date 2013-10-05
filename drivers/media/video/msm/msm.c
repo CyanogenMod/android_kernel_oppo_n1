@@ -1300,7 +1300,11 @@ static struct v4l2_file_operations g_msm_fops = {
 	.poll	= msm_poll,
 	.mmap	= msm_mmap,
 	.release = msm_close,
+	#if 0 //lanhe@oppo.com modify for muti tread ctl this device should not blocked
 	.ioctl   = video_ioctl2,
+	#else
+	.unlocked_ioctl   = video_ioctl2,
+	#endif
 };
 
 static int msm_cam_dev_init(struct msm_cam_v4l2_device *pcam)

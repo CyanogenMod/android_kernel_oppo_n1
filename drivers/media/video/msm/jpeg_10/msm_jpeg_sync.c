@@ -21,6 +21,7 @@
 #include "msm_jpeg_core.h"
 #include "msm_jpeg_platform.h"
 #include "msm_jpeg_common.h"
+#define UINT32_MAX    (4294967295U)
 
 #define UINT32_MAX    (4294967295U)
 static int release_buf;
@@ -644,9 +645,10 @@ int msm_jpeg_ioctl_hw_cmds(struct msm_jpeg_device *pgmn_dev,
 	if ((m == 0) || (m > ((UINT32_MAX-sizeof(struct msm_jpeg_hw_cmds))/
 		sizeof(struct msm_jpeg_hw_cmd)))) {
 		JPEG_PR_ERR("%s:%d] outof range of hwcmds\n",
-			__func__, __LINE__);
+						__func__, __LINE__);
 		return -EINVAL;
 	}
+
 	len = sizeof(struct msm_jpeg_hw_cmds) +
 		sizeof(struct msm_jpeg_hw_cmd) * (m - 1);
 	hw_cmds_p = kmalloc(len, GFP_KERNEL);

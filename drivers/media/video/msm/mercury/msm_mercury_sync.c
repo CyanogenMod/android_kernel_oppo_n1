@@ -23,8 +23,8 @@
 #include "msm_mercury_common.h"
 #include "msm_mercury_macros.h"
 #include "msm_mercury_hw_reg.h"
-
 #define UINT32_MAX    (4294967295U)
+
 static struct msm_mercury_core_buf out_buf_local;
 static struct msm_mercury_core_buf in_buf_local;
 

@@ -234,6 +234,7 @@ static int32_t msm_actuator_move_focus(
 
 	if (dest_step_pos == a_ctrl->curr_step_pos)
 		return rc;
+
 	if ((sign_dir > MSM_ACTUATOR_MOVE_SIGNED_NEAR) ||
 		(sign_dir < MSM_ACTUATOR_MOVE_SIGNED_FAR)) {
 		pr_err("%s:%d Invalid sign_dir = %d\n",
@@ -255,6 +256,18 @@ static int32_t msm_actuator_move_focus(
 		a_ctrl->curr_step_pos);
 		return -EFAULT;
 	}
+
+	/* OPPO 2013-04-27 yxq Add begin for reason */
+    if (copy_from_user(&a_ctrl->ringing_params,
+        (void *)move_params->ringing_params,
+        a_ctrl->region_size * sizeof(struct damping_params_t))) {
+        pr_err("%s copy ringing params fail\n", __func__);
+        return -EFAULT;
+    }
+    move_params->ringing_params = a_ctrl->ringing_params;
+	/* OPPO 2013-04-27 yxq Add end */
+
+
 	curr_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
 	a_ctrl->i2c_tbl_index = 0;
 	CDBG("curr_step_pos =%d dest_step_pos =%d curr_lens_pos=%d\n",

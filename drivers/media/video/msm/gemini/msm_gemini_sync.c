@@ -24,7 +24,8 @@
 #include <mach/msm_bus_board.h>
 #include <linux/delay.h>
 
-#  define UINT32_MAX    (4294967295U)
+#define UINT32_MAX    (4294967295U)
+
 static int release_buf;
 
 /* size is based on 4k page size */
@@ -833,7 +834,7 @@ int msm_gemini_ioctl_hw_cmds(struct msm_gemini_device *pgmn_dev,
 	if ((m == 0) || (m > ((UINT32_MAX-sizeof(struct msm_gemini_hw_cmds))/
 		sizeof(struct msm_gemini_hw_cmd)))) {
 		GMN_PR_ERR("%s:%d] outof range of hwcmds\n",
-			 __func__, __LINE__);
+						 __func__, __LINE__);
 		return -EINVAL;
 	}
 
