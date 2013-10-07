@@ -293,7 +293,7 @@ static struct led_info pm8921_led_info[] = {
 		.default_trigger	= "ac-online",
 	},
 	[1] = {
-		.name			= "keyboard-backlight",
+		.name			= "flashlight",
 		.default_trigger	= "default-off",
 	},
 };
