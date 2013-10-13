@@ -171,6 +171,19 @@ struct list_head mdp_hist_lut_list;
 DEFINE_MUTEX(mdp_hist_lut_list_mutex);
 uint32_t last_lut[MDP_HIST_LUT_SIZE];
 
+#ifdef CONFIG_MACH_OPPO
+extern int get_boot_mode(void);
+enum{
+    MSM_BOOT_MODE__NORMAL,
+    MSM_BOOT_MODE__FASTBOOT,
+    MSM_BOOT_MODE__RECOVERY,
+    MSM_BOOT_MODE__FACTORY,
+    MSM_BOOT_MODE__RF,
+    MSM_BOOT_MODE__WLAN,
+    MSM_BOOT_MODE__CHARGE,
+};
+#endif
+
 uint32_t mdp_block2base(uint32_t block)
 {
 	uint32_t base = 0x0;
@@ -2848,6 +2861,11 @@ static int mdp_probe(struct platform_device *pdev)
 		mdp_rev = mdp_pdata->mdp_rev;
 
 		mdp_iommu_split_domain = mdp_pdata->mdp_iommu_split_domain;
+
+#ifdef CONFIG_MACH_OPPO
+        if((get_boot_mode() != MSM_BOOT_MODE__NORMAL) && (get_boot_mode() != MSM_BOOT_MODE__RECOVERY))
+            mdp_pdata->cont_splash_enabled = 0;
+#endif
 
 		rc = mdp_irq_clk_setup(pdev, mdp_pdata->cont_splash_enabled);
 

@@ -34,12 +34,12 @@ unsigned long flags;
 //#define MIPI_READ
 
 /* OPPO 2013-09-18 gousj Add begin for CABC */
-#ifdef CONFIG_VEDOR_EDIT
+#ifdef CONFIG_MACH_OPPO
 #define PANEL_CABC
 #endif
 /* OPPO 2013-09-18 gousj Add end */
 /* OPPO 2013-09-18 gousj Add begin for TEST */
-#ifdef CONFIG_VEDOR_EDIT
+#ifdef CONFIG_MACH_OPPO
 #define PANEL_TEST
 #endif
 /* OPPO 2013-09-18 gousj Add end */
