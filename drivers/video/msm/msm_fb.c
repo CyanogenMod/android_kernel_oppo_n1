@@ -326,48 +326,48 @@ static int get_bright_level(int bright)
 /* OPPO 2013-03-22 zhengzk Add end */
 
 static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
-                    enum led_brightness value)
+					enum led_brightness value)
 {
-    struct msm_fb_data_type *mfd = dev_get_drvdata(led_cdev->dev->parent);
-    int bl_lvl;
+	struct msm_fb_data_type *mfd = dev_get_drvdata(led_cdev->dev->parent);
+	int bl_lvl;
 
-    /* This maps android backlight level 1 to 255 into
-       driver backlight level bl_min to bl_max with rounding
-       and maps backlight level 0 to 0. */
-    if (value <= 0)
-        bl_lvl = 0;
-    else if (value >= MAX_BACKLIGHT_BRIGHTNESS)
-        bl_lvl = mfd->panel_info.bl_max;
-    else
+	/* This maps android backlight level 1 to 255 into
+	   driver backlight level bl_min to bl_max with rounding
+	   and maps backlight level 0 to 0. */
+	if (value <= 0)
+		bl_lvl = 0;
+	else if (value >= MAX_BACKLIGHT_BRIGHTNESS)
+		bl_lvl = mfd->panel_info.bl_max;
+	else
 /* OPPO 2013-03-22 zhengzk Add begin for bkl adjust */
-#if 0
-        bl_lvl = mfd->panel_info.bl_min + ((value - 1) * 2 *
-            (mfd->panel_info.bl_max - mfd->panel_info.bl_min) +
-            MAX_BACKLIGHT_BRIGHTNESS - 1) /
-            (MAX_BACKLIGHT_BRIGHTNESS - 1) / 2;
+#ifndef CONFIG_MACH_OPPO
+		bl_lvl = mfd->panel_info.bl_min + ((value - 1) * 2 *
+			(mfd->panel_info.bl_max - mfd->panel_info.bl_min) +
+			MAX_BACKLIGHT_BRIGHTNESS - 1) /
+			(MAX_BACKLIGHT_BRIGHTNESS - 1) / 2;
 #else
-        //Neal
-        if(get_pcb_version() >= PCB_VERSION_EVT_N1)
-        {
-            bl_lvl = value;
-        }
-        else
-        {
-            bl_lvl = get_bright_level(value);
-        }
+		//Neal
+		if(get_pcb_version() >= PCB_VERSION_EVT_N1)
+		{
+			bl_lvl = value;
+		}
+		else
+		{
+			bl_lvl = get_bright_level(value);
+		}
 #endif
 /* OPPO 2013-03-22 zhengzk Add end */
 
-        down(&mfd->sem);
-    msm_fb_set_backlight(mfd, bl_lvl);
-    pr_debug("%s Neal msm_fb set back light = %d",__func__,bl_lvl);
-    up(&mfd->sem);
+		down(&mfd->sem);
+	msm_fb_set_backlight(mfd, bl_lvl);
+	pr_debug("%s Neal msm_fb set back light = %d",__func__,bl_lvl);
+	up(&mfd->sem);
 }
 
 static struct led_classdev backlight_led = {
-    .name       = "lcd-backlight",
-    .brightness = MAX_BACKLIGHT_BRIGHTNESS,
-    .brightness_set = msm_fb_set_bl_brightness,
+	.name       = "lcd-backlight",
+	.brightness = MAX_BACKLIGHT_BRIGHTNESS,
+	.brightness_set = msm_fb_set_bl_brightness,
 };
 #endif
 
@@ -1108,9 +1108,7 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
     if (((get_boot_mode()==MSM_BOOT_MODE__NORMAL) || (get_boot_mode()==MSM_BOOT_MODE__RECOVERY)) && (!mfd->panel_power_on || !bl_updated)) {
 #endif
 /* OPPO 2013-09-18 gousj Modify end */
-	unset_bl_level = bkl_lvl;
-
-	if (!mfd->panel_power_on || !bl_updated)
+		unset_bl_level = bkl_lvl;
 		return;
 	} else {
 		unset_bl_level = 0;
@@ -4087,7 +4085,8 @@ static int msmfb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 	if (buf_sync->flags & MDP_BUF_SYNC_FLAG_WAIT) {
 		msm_fb_wait_for_fence(mfd);
 	}
-	if (mfd->panel.type == WRITEBACK_PANEL)
+	if ((mfd->panel.type == MIPI_CMD_PANEL) ||
+		(mfd->panel.type == WRITEBACK_PANEL))
 		threshold = 1;
 	else
 		threshold = 2;

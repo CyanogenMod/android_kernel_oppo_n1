@@ -406,7 +406,6 @@ static void mipi_orise_set_backlight(struct msm_fb_data_type *mfd)
 	globle_bkl = mfd->bl_level;
 }
 
-#if 0
 extern int mipi_dsi_panel_power(int on);
 
 static ssize_t attr_orise_reinit(struct device *dev,
@@ -461,7 +460,6 @@ static ssize_t attr_orise_lcdoff(struct device *dev,
 	   */
 	return 0;
 }
-#endif
 /*OPPO Neal modify end*/
 
 static ssize_t attr_orise_rda_bkl(struct device *dev,
@@ -656,11 +654,9 @@ static ssize_t attr_orise_sre(struct device *dev,
 #endif
 /*OPPO 2013-09-11 zhzhyon Add end*/
 
-#if 0
 static DEVICE_ATTR(reinit, S_IRUGO , attr_orise_reinit, NULL);
 static DEVICE_ATTR(lcdon, S_IRUGO , attr_orise_lcdon, NULL);
 static DEVICE_ATTR(lcdoff, S_IRUGO , attr_orise_lcdoff, NULL);
-#endif
 static DEVICE_ATTR(backlight, S_IRUGO , attr_orise_rda_bkl, NULL);
 static DEVICE_ATTR(dispswitch, S_IRUGO , attr_orise_dispswitch, NULL);
 #ifdef PANEL_CABC
@@ -684,11 +680,9 @@ static struct attribute *fs_attrs[] =
 #ifdef PANEL_SRE
 	&dev_attr_sre.attr,
 #endif
-#if 0
 	&dev_attr_reinit.attr,
 	&dev_attr_lcdon.attr,
 	&dev_attr_lcdoff.attr,
-#endif
 	&dev_attr_backlight.attr,
 	&dev_attr_dispswitch.attr,
 	NULL,

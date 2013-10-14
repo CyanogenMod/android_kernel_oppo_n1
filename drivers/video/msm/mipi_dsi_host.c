@@ -984,6 +984,33 @@ void mipi_dsi_controller_cfg(int enable)
 
 	uint32 dsi_ctrl;
 	uint32 status;
+/* OPPO 2012-11-30 huyu modify for boot LOGO bluescreen*/
+#ifndef CONFIG_MACH_OPPO
+	int cnt;
+
+	cnt = 16;
+	while (cnt--) {
+		status = MIPI_INP(MIPI_DSI_BASE + 0x0004);
+		status &= 0x02;     /* CMD_MODE_DMA_BUSY */
+		if (status == 0)
+			break;
+		usleep(1000);
+	}
+	if (cnt == 0)
+		pr_info("%s: DSI status=%x failed\n", __func__, status);
+
+	cnt = 16;
+	while (cnt--) {
+		status = MIPI_INP(MIPI_DSI_BASE + 0x0008);
+		status &= 0x11111000;   /* x_HS_FIFO_EMPTY */
+		if (status == 0x11111000)   /* all empty */
+			break;
+		usleep(1000);
+	}
+
+	if (cnt == 0)
+		pr_info("%s: FIFO status=%x failed\n", __func__, status);
+#else
 	u32 sleep_us = 1000;
 	u32 timeout_us = 16000;
 
@@ -1007,6 +1034,8 @@ void mipi_dsi_controller_cfg(int enable)
 			   ((status & 0x08) == 0),
 			       sleep_us, timeout_us))
 		pr_info("%s: DSI status=%x failed\n", __func__, status);
+#endif
+/* OPPO 2012-11-30 huyu modify for boot LOGO bluescreen*/
 
 	dsi_ctrl = MIPI_INP(MIPI_DSI_BASE + 0x0000);
 	if (enable)

@@ -337,7 +337,7 @@ enum {
 };
 
 static bool dsi_power_on;
-static int mipi_dsi_panel_power(int on)
+int mipi_dsi_panel_power(int on)
 {
 	static struct regulator *reg_lvs7, *reg_l2, *reg_l11, *reg_l22,
 				*reg_ext_3p3v;
