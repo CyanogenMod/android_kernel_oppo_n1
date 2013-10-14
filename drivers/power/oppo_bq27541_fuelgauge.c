@@ -1341,13 +1341,13 @@ static int bq27541_update_capacity_pre_resume(void)
 
 }
 
-extern int alarm_read_rtc_time(struct rtc_time *tm);
+extern int msmrtc_alarm_read_time(struct rtc_time *tm);
 static int bq27541_battery_i2c_suspend(struct i2c_client *client, pm_message_t message)
 {
 	int ret=0;
 	struct rtc_time     rtc_suspend_rtc_time;
-	
-	alarm_read_rtc_time(&rtc_suspend_rtc_time);
+
+	msmrtc_alarm_read_time(&rtc_suspend_rtc_time);
 	if (ret < 0) {
 		pr_err("%s: Failed to read RTC time\n", __func__);
 		return 0;
@@ -1367,8 +1367,8 @@ static int bq27541_battery_i2c_resume(struct i2c_client *client)
 	struct rtc_time     rtc_resume_rtc_time;
 		
 	pr_info("enter:bq27541_resume\n");
-	
-	alarm_read_rtc_time(&rtc_resume_rtc_time);
+
+	msmrtc_alarm_read_time(&rtc_resume_rtc_time);
 	if (ret < 0) {
 		pr_err("%s: Failed to read RTC time\n", __func__);
 		return 0;

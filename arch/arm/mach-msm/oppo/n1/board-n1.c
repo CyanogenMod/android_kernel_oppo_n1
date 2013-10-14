@@ -2740,7 +2740,7 @@ static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi1_pdata = {
 };
 
 static struct msm_i2c_platform_data apq8064_i2c_qup_gsbi3_pdata = {
-	.clk_freq = 100000,
+	.clk_freq = 384000,
 	.src_clk_rate = 24000000,
 };
 
@@ -3580,6 +3580,29 @@ static void __init apq8064_cdp_init(void)
 		platform_device_register(&mpq8064_device_uartdm_gsbi6);
 	}
 }
+
+/* OPPO 2012-11-05 Van Modify begin for add interface start reason and boot_mode begin */
+char pwron_event[16];
+
+static int __init start_reason_setup(char *str)
+{
+	strcpy(pwron_event, str);
+	printk(KERN_INFO "%s: parse poweron reason %s\n", __func__, pwron_event);
+
+	return 1;
+}
+__setup("androidboot.startupmode=", start_reason_setup);
+
+char boot_mode[16];
+static int __init boot_mode_setup(char *str)
+{
+	strcpy(boot_mode, str);
+
+	printk(KERN_INFO "%s: parse boot_mode is %s\n", __func__, boot_mode);
+	return 1;
+}
+__setup("androidboot.mode=", boot_mode_setup);
+/* OPPO 2012-11-05 Van Modify begin for add interface start reason and boot_mode end */
 
 MACHINE_START(APQ8064_MTP, "QCT APQ8064 MTP")
 	.map_io = apq8064_map_io,
