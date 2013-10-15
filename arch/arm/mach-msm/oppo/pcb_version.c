@@ -49,9 +49,9 @@ int get_boot_mode(void)
 	return ftm_mode;
 }
 
+static char pwron_event[16];
 static int __init start_reason_setup(char *str)
 {
-	char pwron_event[16];
 	strcpy(pwron_event, str);
 	printk(KERN_INFO "%s: parse poweron reason %s\n", __func__, pwron_event);
 
@@ -59,15 +59,25 @@ static int __init start_reason_setup(char *str)
 }
 __setup("androidboot.startupmode=", start_reason_setup);
 
+char * get_start_reason(void)
+{
+	return pwron_event;
+}
+
+static char boot_mode[16];
 static int __init boot_mode_setup(char *str)
 {
-	char boot_mode[16];
 	strcpy(boot_mode, str);
 
 	printk(KERN_INFO "%s: parse boot_mode is %s\n", __func__, boot_mode);
 	return 1;
 }
 __setup("androidboot.mode=", boot_mode_setup);
+
+char * get_boot_mode_str(void)
+{
+	return boot_mode;
+}
 
 static int current_pcb_version_num = PCB_VERSION_UNKNOWN;
 int get_pcb_version(void)
