@@ -152,6 +152,194 @@
 #define PCIE_PWR_EN_PMIC_GPIO 13
 #define PCIE_RST_N_PMIC_MPP 1
 
+//WuJinping@OnlineRD.AirService.Phone 2013.1.7, Add for modem subsystem restart not need pin
+static struct kobject *modeminfo_kobj;
+
+/* OPPO 2012-09-12 Van Modify begin for factory mode*/
+static struct kobject *systeminfo_kobj;
+
+static ssize_t ftmmode_show(struct kobject *kobj, struct kobj_attribute *attr,
+				 char *buf)
+{
+	return sprintf(buf, "%d\n", get_boot_mode());
+}
+
+struct kobj_attribute ftmmode_attr = {
+  .attr = {"ftmmode", 0644},
+	.show = &ftmmode_show,
+};
+
+/* OPPO 2013-01-04 Van add start for ftm close modem*/
+#define mdm_drv_ap2mdm_pmic_pwr_en_gpio  27
+
+static ssize_t closemodem_store(struct kobject *kobj, struct kobj_attribute *attr,
+			 const char *buf, size_t count)
+{
+	//writing '1' to close and '0' to open
+	//pr_err("closemodem buf[0] = 0x%x",buf[0]);
+	switch (buf[0]) {
+	case 0x30:
+		break;
+	case 0x31:
+	//  pr_err("closemodem now");
+		gpio_direction_output(mdm_drv_ap2mdm_pmic_pwr_en_gpio, 0);
+		mdelay(4000);
+		break;
+	default:
+		break;
+	}
+
+	return count;
+}
+
+struct kobj_attribute closemodem_attr = {
+  .attr = {"closemodem", 0644},
+  //.show = &closemodem_show,
+  .store = &closemodem_store
+};
+/* OPPO 2013-01-04 Van add end for ftm close modem*/
+
+static struct attribute * g[] = {
+	&ftmmode_attr.attr,
+/* OPPO 2013-01-04 Van add start for ftm close modem*/
+	&closemodem_attr.attr,
+/* OPPO 2013-01-04 Van add end for ftm close modem*/
+	NULL,
+};
+
+static struct attribute_group attr_group = {
+	.attrs = g,
+};
+/* OPPO 2013-01-04 Van Modify end for boot modes*/
+
+//WuJinping@OnlineRD.AirService.Phone 2013.1.7, Add for modem subsystem restart not need pin
+extern int get_modem_reset_num(void);
+
+static char pin_info[64] = {0};
+static int modem_reset_count = 0;
+static int need_pin_process_flag = -1;
+static int sim_status = -1;
+
+int get_sim_status(void)
+{
+	return gpio_get_value(72);
+}
+
+void set_need_pin_process_flag(int flag)
+{
+	need_pin_process_flag = flag;
+}
+
+static ssize_t pininfo_show(struct kobject *kobj, struct kobj_attribute *attr,
+			char *buf){
+	return snprintf(buf, 4096, "%s\n", pin_info);
+}
+
+static ssize_t pininfo_store(struct kobject *kobj, struct kobj_attribute *attr,
+			 const char *buf, size_t count){
+
+	printk("pininfo_store----count:%d   wjp debug     \n", count);
+	if(count >= sizeof(pin_info))
+		count = sizeof(pin_info) - 1;
+
+	strncpy(pin_info, buf, count);
+	pin_info[count] = '\0';
+	return count;
+}
+
+static ssize_t modem_reset_count_show(struct kobject *kobj, struct kobj_attribute *attr,
+				 char *buf)
+{
+	modem_reset_count = get_modem_reset_num();
+	return sprintf(buf, "%d\n", modem_reset_count);
+}
+
+static ssize_t modem_reset_count_store(struct kobject *kobj, struct kobj_attribute *attr,
+			 const char *buf, size_t count){
+	char *after;
+	unsigned long reset_count = simple_strtoul(buf, &after, 10);
+	modem_reset_count = (int)reset_count;
+	return count;
+}
+
+static ssize_t need_pin_process_flag_show(struct kobject *kobj, struct kobj_attribute *attr,
+				 char *buf)
+{
+	return sprintf(buf, "%d\n", need_pin_process_flag);
+}
+
+static ssize_t need_pin_process_flag_store(struct kobject *kobj, struct kobj_attribute *attr,
+			 const char *buf, size_t count){
+	char *after;
+	unsigned long flag = simple_strtoul(buf, &after, 10);
+	need_pin_process_flag = (int)flag;
+	return count;
+}
+
+static ssize_t sim_status_show(struct kobject *kobj, struct kobj_attribute *attr,
+				 char *buf)
+{
+	  sim_status = gpio_get_value(72);
+	return sprintf(buf, "%d\n", sim_status);
+}
+
+static ssize_t sim_status_store(struct kobject *kobj, struct kobj_attribute *attr,
+			 const char *buf, size_t count){
+	char *after;
+	unsigned long status = simple_strtoul(buf, &after, 10);
+	sim_status = (int)status;
+
+	return count;
+}
+
+
+struct kobj_attribute pininfo_attr = {
+/* OPPO 2013-08-16 zhaokai Add begin for CTS android.permission test*/
+	.attr = {"pin_info", 0660},
+/* OPPO 2013-08-16 zhaokai Add end for CTS android.permission test*/
+	.show = &pininfo_show,
+	.store = &pininfo_store
+};
+
+
+struct kobj_attribute modem_reset_count_attr = {
+/* OPPO 2013-08-16 zhaokai Add begin for CTS android.permission test*/
+	.attr = {"modem_reset_count", 0660},
+/* OPPO 2013-08-16 zhaokai Add end for CTS android.permission test*/
+	.show = &modem_reset_count_show,
+	.store = &modem_reset_count_store,
+};
+
+struct kobj_attribute need_pin_process_flag_attr = {
+/* OPPO 2013-08-16 zhaokai Add begin for CTS android.permission test*/
+	.attr = {"need_pin_process_flag", 0660},
+/* OPPO 2013-08-16 zhaokai Add end for CTS android.permission test*/
+	.show = &need_pin_process_flag_show,
+	.store = &need_pin_process_flag_store,
+};
+
+struct kobj_attribute sim_status_attr = {
+/* OPPO 2013-08-16 zhaokai Add begin for CTS android.permission test*/
+	.attr = {"sim_status", 0660},
+/* OPPO 2013-08-16 zhaokai Add end for CTS android.permission test*/
+	.show = &sim_status_show,
+	.store = &sim_status_store,
+};
+
+static struct attribute * modeminfo_attr[] = {
+	&sim_status_attr.attr,
+	&need_pin_process_flag_attr.attr,
+	&modem_reset_count_attr.attr,
+	&pininfo_attr.attr,
+
+	NULL,
+};
+
+static struct attribute_group modeminfo_attr_group = {
+	.attrs = modeminfo_attr,
+};
+
+
 #ifdef CONFIG_KERNEL_MSM_CONTIG_MEM_REGION
 static unsigned msm_contig_mem_size = MSM_CONTIG_MEM_SIZE;
 static int __init msm_contig_mem_size_setup(char *p)
@@ -3408,6 +3596,7 @@ static void __init apq8064ab_update_retention_spm(void)
 static void __init apq8064_common_init(void)
 {
 	u32 platform_version = socinfo_get_platform_version();
+    int rc = 0;
 
 	platform_device_register(&msm_gpio_device);
 	if (cpu_is_apq8064ab())
@@ -3537,6 +3726,18 @@ static void __init apq8064_common_init(void)
 	}
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 	apq8064_epm_adc_init();
+
+	/* OPPO 2012-09-12 Van Modify begin for factory mode*/
+	systeminfo_kobj = kobject_create_and_add("systeminfo", NULL);
+	printk("songxh create systeminto node!\n");
+	if (systeminfo_kobj)
+		rc = sysfs_create_group(systeminfo_kobj, &attr_group);
+	/* OPPO 2012-09-12 Van Modify end */
+	//WuJinping@OnlineRD.AirService.Phone 2013.1.7, Add for modem subsystem restart not need pin
+	modeminfo_kobj = kobject_create_and_add("modeminfo", NULL);
+	printk("create modeminfo node by wjp!\n");
+	if (modeminfo_kobj)
+		rc = sysfs_create_group(modeminfo_kobj, &modeminfo_attr_group);
 }
 
 static void __init apq8064_allocate_memory_regions(void)
