@@ -16,7 +16,9 @@
 #include <linux/export.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/string.h>
+#include <linux/sysfs.h>
 
 #include <linux/pcb_version.h>
 
@@ -126,3 +128,55 @@ int __init board_pcb_verson_init(char *s)
 }
 __setup("oppo.pcb_version=", board_pcb_verson_init);
 
+static ssize_t ftmmode_show(struct kobject *kobj, struct kobj_attribute *attr,
+		char *buf)
+{
+	return sprintf(buf, "%d\n", ftm_mode);
+}
+
+static struct kobj_attribute ftmmode_attr = {
+	.attr = { "ftmmode", 0644 },
+	.show = &ftmmode_show,
+};
+
+static struct attribute *ftmmode_attr_list[] = {
+	&ftmmode_attr.attr,
+	NULL,
+};
+
+static struct attribute_group systeminfo_attr_group = {
+	.attrs = ftmmode_attr_list,
+};
+
+static struct kobject *systeminfo_kobj;
+
+static int __init oppo_params_init(void)
+{
+	int rc;
+
+	systeminfo_kobj = kobject_create_and_add("systeminfo", NULL);
+	if (systeminfo_kobj == NULL) {
+		pr_err("%s: Failed to create system info kobject", __func__);
+		return -ENOMEM;
+	}
+	rc = sysfs_create_group(systeminfo_kobj, &systeminfo_attr_group);
+	if (rc != 0) {
+		pr_err("%s: Failed to create system info sysfs node: %d",
+				__func__, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static void __exit oppo_params_exit(void)
+{
+	sysfs_remove_group(systeminfo_kobj, &systeminfo_attr_group);
+	kobject_del(systeminfo_kobj);
+}
+
+module_init(oppo_params_init);
+module_exit(oppo_params_exit);
+MODULE_DESCRIPTION("Oppo boot params initialization module");
+MODULE_AUTHOR("The CyanogenMod Project");
+MODULE_LICENSE("GPL");
