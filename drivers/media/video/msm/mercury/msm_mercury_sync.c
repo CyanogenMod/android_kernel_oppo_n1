@@ -483,10 +483,9 @@ int msm_mercury_ioctl_hw_cmds(struct msm_mercury_device *pmercury_dev,
 	if ((m == 0) || (m > ((UINT32_MAX-sizeof(struct msm_mercury_hw_cmds))/
 		sizeof(struct msm_mercury_hw_cmd)))) {
 		MCR_PR_ERR("%s:%d] outof range of hwcmds\n",
-						__func__, __LINE__);
+			__func__, __LINE__);
 		return -EINVAL;
 	}
-
 	len = sizeof(struct msm_mercury_hw_cmds) +
 		sizeof(struct msm_mercury_hw_cmd) * (m - 1);
 	hw_cmds_p = kmalloc(len, GFP_KERNEL);

@@ -326,12 +326,20 @@ int msm_camera_enable_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 					continue;
 			} else
 				j = i;
+
 /* OPPO 2013-05-23 yxq Add begin for reason */
             if (reg_ptr[j] == NULL) {
                 printk("%s reg_ptr[%d] is null\n", __func__, j);
                 continue;
             }
 /* OPPO 2013-05-23 yxq Add end */
+
+			if (IS_ERR(reg_ptr[j])) {
+				pr_err("%s: %s null regulator\n",
+					__func__, cam_vreg[j].reg_name);
+				return -EINVAL;
+			}
+
 			regulator_disable(reg_ptr[j]);
 			if (cam_vreg[j].delay > 20)
 				msleep(cam_vreg[j].delay);
@@ -349,6 +357,11 @@ disable_vreg:
 				continue;
 		} else
 			j = i;
+		if (IS_ERR(reg_ptr[j])) {
+			pr_err("%s: %s null regulator\n",
+				__func__, cam_vreg[j].reg_name);
+			return -EINVAL;
+		}
 		regulator_disable(reg_ptr[j]);
 		if (cam_vreg[j].delay > 20)
 			msleep(cam_vreg[j].delay);

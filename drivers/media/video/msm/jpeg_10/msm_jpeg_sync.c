@@ -23,6 +23,7 @@
 #include "msm_jpeg_common.h"
 #define UINT32_MAX    (4294967295U)
 
+#define UINT32_MAX    (4294967295U)
 static int release_buf;
 
 inline void msm_jpeg_q_init(char const *name, struct msm_jpeg_q *q_p)
