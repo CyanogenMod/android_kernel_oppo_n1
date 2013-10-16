@@ -45,5 +45,7 @@ int get_boot_mode(void);
 int get_pcb_version(void);
 char * get_boot_mode_str(void);
 char * get_start_reason(void);
+void set_need_pin_process_flag(int flag);
+int get_sim_status(void);
 
 #endif /* _PCB_VERSION_H */

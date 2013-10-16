@@ -486,8 +486,6 @@ static void __subsystem_restart_dev(struct subsys_device *dev)
 }
 
 //WuJinping@OnlineRD.AirService.Phone 2013.1.7, Add for modem subsystem restart not need pin
-extern void set_need_pin_process_flag(int flag);
-extern int get_sim_status(void);
 int modem_reset_num = 0;
 int get_modem_reset_num(void)
 {
