@@ -127,7 +127,7 @@ struct bq27541_access_methods {
 
 #define BATTERY_DEFAULT_TEMP 230 //23 C
 #define VCHG_DEFAULT_VOLTAGE 5000
-#define BOOT_TIME 12 //60S
+#define BOOT_TIME 20//sjc 12->20 //60S
 enum bq27541_chip { BQ27541, BQ27500 };/*use to support more bq chip*/
 
 #ifndef GAGUE_MIN
@@ -681,11 +681,11 @@ int bq27541_get_battery_time(int reg)
 #define CAPACITY_SALTATE_CHANGE_MVOLTS 3650
 #define CAPACITY_SALTATE_CHANGE_MVOLTS_LOW 3500
 /*battery high than 3600mv,set the capacity saltate to 60s*/
-#define CAPACITY_SALTATE_COUNTER 12
+#define CAPACITY_SALTATE_COUNTER 20//sjc 12->20
 /*battery low than 3650,set the capacity saltate to 30s*/
-#define CAPACITY_SALTATE_COUNTER_MID 6
+#define CAPACITY_SALTATE_COUNTER_MID 10//sjc 6->10
 /*battery low than 3500,set the capacity saltate to 30s*/
-#define CAPACITY_SALTATE_COUNTER_LOW 3 
+#define CAPACITY_SALTATE_COUNTER_LOW 5//sjc 3->5 
 
 
 #define BATT_CAPACITY_FULL 100
@@ -767,7 +767,7 @@ static unsigned int bq27541_capacity_calibrate(unsigned int batt_capacity)
 
 #define BATT_CAPACITY_VALID_MAX 100
 #define BATT_CAPACITY_VALID_MIN 0
-#define DEBUG_LOG_TIME 12
+#define DEBUG_LOG_TIME 20//sjc 12->20
 static int bq27541_get_battery_capacity(void)
 {
 	int ret;
@@ -1346,7 +1346,7 @@ static int bq27541_battery_i2c_suspend(struct i2c_client *client, pm_message_t m
 {
 	int ret=0;
 	struct rtc_time     rtc_suspend_rtc_time;
-
+	
 	msmrtc_alarm_read_time(&rtc_suspend_rtc_time);
 	if (ret < 0) {
 		pr_err("%s: Failed to read RTC time\n", __func__);
@@ -1366,8 +1366,8 @@ static int bq27541_battery_i2c_resume(struct i2c_client *client)
 	int ret=0;
 	struct rtc_time     rtc_resume_rtc_time;
 		
-	pr_info("enter:bq27541_resume\n");
-
+	//sjc pr_info("enter:bq27541_resume\n");
+	
 	msmrtc_alarm_read_time(&rtc_resume_rtc_time);
 	if (ret < 0) {
 		pr_err("%s: Failed to read RTC time\n", __func__);
@@ -1375,7 +1375,7 @@ static int bq27541_battery_i2c_resume(struct i2c_client *client)
 	}
 	rtc_tm_to_time(&rtc_resume_rtc_time, &bq27541_info->rtc_resume_time);
 
-	pr_info("exist:bq27541_resume %ld,%ld\n",bq27541_info->rtc_suspend_time,bq27541_info->rtc_resume_time);
+	//sjc pr_info("exist:bq27541_resume %ld,%ld\n",bq27541_info->rtc_suspend_time,bq27541_info->rtc_resume_time);
 	
 	if((bq27541_info->rtc_resume_time - bq27541_info->rtc_suspend_time)>= RESUME_TIME){
 		/*update pre capacity when sleep time more than 1minutes*/

@@ -18,6 +18,7 @@
 
 int lm3630_bkl_control(unsigned char bkl_level);
 int lm3630_bkl_readout(void);
+int set_backlight_pwm(int state);
 
 
 #endif /* __LINUX_LM3630_H */

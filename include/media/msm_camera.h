@@ -1049,7 +1049,7 @@ struct msm_snapshot_pp_status {
 #define CFG_SET_ASD_ENABLE		  67
 #define CFG_SET_SLOW_SHUTTER	  68
 #define CFG_SET_HDR_ENABLE	  	  69
-#define CFG_UPDATE_GRAVITY_INFO	  70
+#define CFG_SET_ORIENTATION		  70
 #define CFG_GET_AUTO_ISO_VALUE	  71
 #define CFG_GET_EXPOSURE_TIME	  72
 #define CFG_SET_FD_INFO     	  73
@@ -1057,7 +1057,9 @@ struct msm_snapshot_pp_status {
 #define CFG_SET_SPORT_MODE        75
 #define CFG_SET_AE_LOCK			  76
 #define CFG_SET_AWB_LOCK		  77
-#define CFG_MAX                   78
+#define CFG_SET_CAF_RESULT		  78
+#define CFG_GET_FLASH_INFO	  	  79
+#define CFG_MAX                   80
 #endif
 /* OPPO 2013-07-24 lanhe Add end */
 
@@ -1685,11 +1687,6 @@ struct msm_cam_clk_setting {
 	uint8_t enable;
 };
 
-struct msm_gravity_info {
-	int data_ready;
-	int data[3];
-};
-
 struct sensor_cfg_data {
 	int cfgtype;
 	int mode;
@@ -1745,9 +1742,11 @@ struct sensor_cfg_data {
 		int32_t asd_enable;
 		int32_t slow_shutter;
 		int32_t hdr_enable;
-		struct msm_gravity_info gravity_info;
+		int32_t orientation;
+		int32_t caf_result;
 		int32_t auto_iso_value;
 		int32_t exp_time;
+		int32_t flash_info;
 		struct cord fd_cord;
 		int32_t ae_lock;
 		int32_t awb_lock;

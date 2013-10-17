@@ -27,7 +27,9 @@
 ** <author>		                      <data> 	<version >  <desc>
 ** ------------------------------------------------------------------------------
 ** YangHai@OnlineRD.Driver.TouchScreen  2013/05/19   1.0	    create file
-** ranfei@OnlineRD.Driver.TouchScreen   2013/9/23    1.1	    shut down touchpad after probe
+** ranfei@OnlineRD.Driver.TouchScreen   2013/09/23   1.1	    shut down touchpad after probe
+** ranfei@OnlineRD.Driver.TouchSCreen   2013/10/10   1.2        当使能的时候，由控制复位变成控制电源
+** ranfei@OnlineRD.Driver.TouchSCreen   2013/10/15   1.3        修改睡眠唤醒时断电与上电的bug
 ** ------------------------------------------------------------------------------
 ** 
 ************************************************************************************/
@@ -223,6 +225,16 @@ retry_block:
         boot_mode = 1;
     print_ts(TS_INFO, KERN_ERR"cypress chip id is [0x%x], version is [0x%x], boot mode is [%d]\n",
         g_cypress_id, g_cypress_ver, boot_mode);
+
+/* OPPO 2013-10-11 ranfei Add begin for AT模式不升级固件 */
+#ifdef CONFIG_VENDOR_EDIT    
+    if(get_boot_mode() == MSM_BOOT_MODE__FACTORY ||
+       get_boot_mode() == MSM_BOOT_MODE__WLAN ||
+       get_boot_mode() == MSM_BOOT_MODE__RF ) {
+        return 0;
+    }
+#endif
+/* OPPO 2013-10-11 ranfei Add end */
 
     if(g_cypress_ver != CYPRESS_FIRMWARE_VERSION || force_update){
         if(updatefw(boot_mode) != 0) {
@@ -671,12 +683,12 @@ static int touch_pad_enable_proc_write( struct file *filp, const char __user *bu
 	val = (val == 0 ? 0:1);
 	
 	if ((val == 1) && atomic_read(&ts->touch_enable) == 0) {
-		gpio_set_value(ts->reset_gpio, 0);
+        ts->power(1);
 		atomic_set(&ts->touch_enable, val);
         
 		print_ts(TS_INFO, KERN_INFO "%s: touch pad enable \n", __func__);
 	} else if ((val == 0) && atomic_read(&ts->touch_enable) == 1) {
-		gpio_set_value(ts->reset_gpio, 1);		
+        ts->power(0);
 		atomic_set(&ts->touch_enable, val);
 
 		print_ts(TS_INFO, KERN_INFO "%s: set touch pad disable\n", __func__);
@@ -722,7 +734,7 @@ static int touch_pad_rawdata_proc_read(char *page, char **start, off_t off,
         rawdata[j] = rawdata[j] >> 3;
     }
    
-	return sprintf(page, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
+	return sprintf(page, "%d*%d*%d*%d*%d*%d*%d*%d*%d*%d*%d\n",
                    rawdata[0],  rawdata[1],  rawdata[2],  rawdata[3],  rawdata[4],  rawdata[5],  rawdata[6],
                    rawdata[7],  rawdata[8],  rawdata[9],  rawdata[10]);
 }
@@ -804,10 +816,14 @@ static int y8c20x66a_ts_probe(
 	int ret = 0;
 	struct y8c20x66a_i2c_rmi_platform_data *pdata;
 	unsigned long irqflags=0;
-
-    if(get_boot_mode() != MSM_BOOT_MODE__NORMAL )
+	
+#ifdef CONFIG_VENDOR_EDIT
+/*OPPO 2013.09.28 hewei modify begin for recovery mode do not use touchscreen*/
+    if(get_boot_mode() == MSM_BOOT_MODE__RECOVERY)
         return -EPERM;
-    
+/*OPPO 2013.09.28 hewei modify end for recovery mode do not use touchscreen*/
+#endif
+
 	print_ts(TS_INFO, KERN_ERR "y8c20x66a_ts_probe+++\n");
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		print_ts(TS_ERROR, KERN_ERR "y8c20x66a_ts_probe: need I2C_FUNC_I2C\n");
@@ -903,7 +919,8 @@ static int y8c20x66a_ts_probe(
     init_touch_proc(ts);
 
     atomic_set(&ts->touch_enable, 0);
-    gpio_set_value(ts->reset_gpio, 1);
+    if (ts->power)
+		ts->power(0);
 
 	syna_log_level = TS_INFO;
 
@@ -941,10 +958,6 @@ static int y8c20x66a_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	down(&y8c20x66a_sem);
     
 	ts->is_tp_suspended = 1;
-
-    if(atomic_read(&ts->touch_enable) == 1) {
-        gpio_set_value(ts->reset_gpio, 1);
-    }
     
 	if (ts->use_irq)
 		disable_irq(client->irq);
@@ -953,11 +966,13 @@ static int y8c20x66a_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 
 	if (ret < 0)
 		print_ts(TS_ERROR, KERN_ERR "%s: can not disable interrupt\n", __func__);
-    
-	if (ts->power) {
-		ret = ts->power(0);
-		if (ret < 0)
-			print_ts(TS_ERROR, KERN_ERR "y8c20x66a_ts_resume power off failed\n");
+
+    if(atomic_read(&ts->touch_enable) == 1) {
+	    if (ts->power) {
+		    ret = ts->power(0);
+		    if (ret < 0)
+			    print_ts(TS_ERROR, KERN_ERR "y8c20x66a_ts_resume power off failed\n");
+	    }
 	}
     
 	up(&y8c20x66a_sem);
@@ -969,18 +984,18 @@ static int y8c20x66a_ts_resume(struct i2c_client *client)
 {
 	int ret;
 	struct y8c20x66a_ts_data *ts = i2c_get_clientdata(client);
+
 	down(&y8c20x66a_sem);
-    
-	if (ts->power) {
-		ret = ts->power(1);
-		if (ret < 0)
-			print_ts(TS_ERROR, KERN_ERR "y8c20x66a_ts_resume power on failed\n");
+
+    if(atomic_read(&ts->touch_enable) == 1) {
+	    if (ts->power) {
+		    ret = ts->power(1);
+		    if (ret < 0)
+			    print_ts(TS_ERROR, KERN_ERR "y8c20x66a_ts_resume power on failed\n");
+	    }
 	}
 
 	ts->is_tp_suspended = 0;
-    if(atomic_read(&ts->touch_enable) == 1) {
-        gpio_set_value(ts->reset_gpio, 0);
-    }
     
 	if (ts->use_irq)
 		enable_irq(client->irq);

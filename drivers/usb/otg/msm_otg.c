@@ -83,7 +83,7 @@
 extern int pm8921_chg_connected(enum usb_chg_type chg_type);
 struct completion chg_detect_wait;
 
-#define USB_NONSTANDARD_DET_DELAY	msecs_to_jiffies(1500)
+#define USB_NONSTANDARD_DET_DELAY	msecs_to_jiffies(1650)
 static int cancel_nonstandard_worker = 0;
 
 void cancel_nonstandard_worker_fn(char *fn_str)
@@ -2292,7 +2292,7 @@ static void nonstandard_detect_work(struct work_struct *w)
 		msm_otg_notify_charger(motg, IDEV_CHG_MIN);
 		if (motg->chg_type == USB_NON_DCP_CHARGER)
 			smb358_charger_connected(CHARGER_TYPE__NON_DCP);
-		else
+		else if (motg->chg_type == USB_HDMI_CHARGER)
 			smb358_charger_connected(CHARGER_TYPE__HDMI);
 	} else if (motg->chg_type != USB_SDP_CHARGER) {
 		pr_err("%s:usb seems not enumerated yet in time,but we got info from udc_irq that it is usb charger \n", __func__);

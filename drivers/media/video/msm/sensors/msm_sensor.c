@@ -22,6 +22,8 @@
 #include <mach/vreg.h>
 #include <linux/i2c/ssl3252.h>
 /* OPPO 2013-02-04 kangjian added end */
+#include <linux/pcb_version.h>
+/* OPPO 2013-10-12 ranfei Add end */
 /*=============================================================*/
 void msm_sensor_adjust_frame_lines1(struct msm_sensor_ctrl_t *s_ctrl)
 {
@@ -2051,6 +2053,8 @@ int32_t s5k6a3yx_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		goto enable_vreg_failed;
 	}
   #else
+/* OPPO 2013-10-12 ranfei Modify begin for N1ÉÏÃæµçÔ´ÒÑ¾­¸ü¸Ä */
+#if 0
  	// for old GSBI1's voltage
 	ldo21 = regulator_get(NULL, "8921_l21");
 	if (IS_ERR(ldo21)){
@@ -2066,6 +2070,27 @@ int32_t s5k6a3yx_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		pr_err("%s: VREG LDO21 enable failed\n", __func__);
 		//goto ldo16_enable_failed;
 		}
+#else
+    if((get_pcb_version() > PCB_VERSION_EVT)&&(get_pcb_version() < PCB_VERSION_EVT_N1)) {
+    	// for old GSBI1's voltage
+    	ldo21 = regulator_get(NULL, "8921_l21");
+    	if (IS_ERR(ldo21)){
+    		pr_err("%s: VREG LDO21 get failed\n", __func__);
+    		ldo21 = NULL;
+    		//goto ldo16_get_failed;
+    	}
+    	if (regulator_set_voltage(ldo21, 1800000, 1800000)) {
+    		pr_err("%s: VREG LDO21 set voltage failed\n",  __func__);
+    		//goto ldo16_set_voltage_failed;
+    	}
+    	if (regulator_enable(ldo21)) {
+    		pr_err("%s: VREG LDO21 enable failed\n", __func__);
+    		//goto ldo16_enable_failed;
+        }
+    }
+
+#endif
+/* OPPO 2013-10-12 ranfei Modify end */
 	msleep(5);
 
 	ldo8 = regulator_get(NULL, "8921_l8");

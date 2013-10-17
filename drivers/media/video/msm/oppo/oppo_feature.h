@@ -20,6 +20,13 @@ enum OPPO_FEATURE{
     OPPO_ASD,
     MAX_FEATURE,
 };
+
+typedef enum
+{
+	FORCE_CAF_START,
+	FORCE_CAF_STOP,
+}m9mo_caf_result;
+
 struct frame_info_t
 {
 	int16_t brightness;
@@ -29,19 +36,24 @@ struct frame_info_t
 	u_int16_t wb;
 	u_int8_t  af_position;
 	u_int16_t gain;
-	int32_t gravity_data[3];
-	bool gravity_valid;
 	bool capture_start;
 	bool single_af;
-	int32_t single_af_delay;
 	bool wd_valid;
-	int32_t wd_delay_frame;
 	bool ae_stable;
+	bool focus_done;
+	m9mo_caf_result caf_result;
+	bool start_moving;
 };
 
-#define WDV_CAF_LOW_THR 			(1500)
-#define ANTI_WDV_SHAKE_DELAY 		(20)
-#define DO_AF_DELAY 				(2)
+#define WDV_CAF_LOW_THR 				(2300)
+#define ANTI_WDV_SHAKE_DELAY 			(15)
+#define DO_AF_DELAY 					(0)
+
+#define CAM_START_DELAY_FRAME			(6)
+#define WD_VALID_DELAY_FRAME			(30)
+#define CAP_DELAY_FRAME					(20)
+#define SINGLE_FOCUS_DETECT_FRAME		(30)
+
 struct oppo_interface{
    void (*notify)(struct msm_sensor_ctrl_t*,  int32_t);
    void (*process)(struct msm_sensor_ctrl_t*, struct frame_info_t*);

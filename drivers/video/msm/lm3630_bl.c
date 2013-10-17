@@ -21,14 +21,11 @@
 #include <linux/err.h>
 #include <linux/i2c/lm3630_bl.h>
 
-#define LM3630_DRV_NAME "lm3630"
-#define SSL3252_CHIP_ID     0x41
-#define LM3630_GP           0x10
-#define LM3630_GP_MODE      0xc7
-#define LM3630_BMAIN        0xa0
-#define LM3630_BMAIN_MAX    127
+#define CONFIG_VENDOR_EDIT
 
+#define LM3630_DRV_NAME "lm3630"
 #define LM3630_I2C_READ
+#define LM3630_ENABLE_GPIO   86
 
 extern int get_boot_mode(void);
 enum
@@ -159,6 +156,24 @@ static int lm3630_i2c_write(unsigned char   raddr, unsigned char  rdata)
     return rc;
 }
 
+/* OPPO 2013-10-04 gousj Add begin for back light flicker */
+#ifdef CONFIG_VENDOR_EDIT
+int set_backlight_pwm(int state)
+{
+    int rc = 0;
+    if(state == 1)
+    {
+        rc = lm3630_i2c_write(0x01, 0x19);
+    }
+    else
+    {
+        rc = lm3630_i2c_write(0x01, 0x18);
+    }
+    return rc;
+}
+#endif
+/* OPPO 2013-10-04 gousj Add end */
+
 int lm3630_bkl_control(unsigned char bkl_level)
 {
     int rc = 0;
@@ -185,14 +200,6 @@ int lm3630_bkl_control(unsigned char bkl_level)
         rc = lm3630_i2c_write(0x00, 0x1f);
         sleep_mode= false;
         mdelay(10);
-        if(get_boot_mode() == MSM_BOOT_MODE__FACTORY)
-        {
-            rc = lm3630_i2c_write(0x01, 0x18);
-        }
-        else
-        {
-            rc = lm3630_i2c_write(0x01, 0x19);
-        }
     }
     rc = lm3630_i2c_write(0x03, bkl_level);
     pr_debug("%s: Neal lm3630_client set bkl level = %d, read level after write = %d ,rc = %d\n", __func__,(int)bkl_level,lm3630_bkl_readout(),rc);
@@ -212,7 +219,6 @@ int lm3630_bkl_readout(void)
     return rc;
 }
 
-#define LM3630_ENABLE_GPIO   86
 static int lm3630_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
     int rc = 0;
@@ -251,15 +257,8 @@ static int lm3630_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 
     rc = lm3630_i2c_write(0x00, 0x1f);
     rc = lm3630_i2c_write(0x50, 0x03);
-    if(get_boot_mode() == MSM_BOOT_MODE__FACTORY)
-    {
-        rc = lm3630_i2c_write(0x01, 0x18);
-    }
-    else
-    {
-        rc = lm3630_i2c_write(0x01, 0x19);
-    }
-    rc = lm3630_i2c_write(0x02, 0x79);
+    rc = lm3630_i2c_write(0x01, 0x18);
+    rc = lm3630_i2c_write(0x02, 0x78);
     rc = lm3630_i2c_write(0x03, 0xff);
     rc = lm3630_i2c_write(0x05, 0x14);
     rc = lm3630_i2c_write(0x06, 0x14);
@@ -311,7 +310,13 @@ static int lm3630_resume(struct i2c_client *client)
     mdelay(10);
     rc = lm3630_i2c_write(0x50, 0x03);
     rc = lm3630_i2c_write(0x01, 0x18);
+/* OPPO 2013-10-04 gousj Modify begin for Radio Frequency Interference */
+#ifndef CONFIG_VENDOR_EDIT
     rc = lm3630_i2c_write(0x02, 0x79);
+#else
+	rc = lm3630_i2c_write(0x02, 0x78);
+#endif
+/* OPPO 2013-10-04 gousj Modify end */
     rc = lm3630_i2c_write(0x05, 0x14);
     rc = lm3630_i2c_write(0x06, 0x14);
     rc = lm3630_i2c_write(0x07, 0x00);

@@ -50,11 +50,12 @@ date:2013-6-9
 #define STANDARD__FAST_CHG__LITTLE_COLD_CURRNET		FAST_CHG_CURRENT__200MA
 #define STANDARD__FAST_CHG__COOL_CURRNET			FAST_CHG_CURRENT__900MA
 #define STANDARD__FAST_CHG__NORMAL_CURRNET			FAST_CHG_CURRENT__2000MA
+#define STANDARD__FAST_CHG__NORMAL_CURRNET_AICL	FAST_CHG_CURRENT__1800MA//sjc1003 for current aicl
 #define STANDARD__FAST_CHG__WARM_CURRNET			FAST_CHG_CURRENT__900MA
-#define STANDARD__TAPER_CHG__LITTLE_COLD_CURRNET	FAST_CHG_CURRENT__2000MA
-#define STANDARD__TAPER_CHG__COOL_CURRNET			FAST_CHG_CURRENT__2000MA
-#define STANDARD__TAPER_CHG__NORMAL_CURRNET		FAST_CHG_CURRENT__2000MA
-#define STANDARD__TAPER_CHG__WARM_CURRNET			FAST_CHG_CURRENT__2000MA
+#define STANDARD__TAPER_CHG__LITTLE_COLD_CURRNET	FAST_CHG_CURRENT__1800MA//sjc0927//FAST_CHG_CURRENT__2000MA
+#define STANDARD__TAPER_CHG__COOL_CURRNET			FAST_CHG_CURRENT__1800MA//sjc0927//FAST_CHG_CURRENT__2000MA
+#define STANDARD__TAPER_CHG__NORMAL_CURRNET		FAST_CHG_CURRENT__1800MA//sjc0927//FAST_CHG_CURRENT__2000MA
+#define STANDARD__TAPER_CHG__WARM_CURRNET			FAST_CHG_CURRENT__1800MA//sjc0927//FAST_CHG_CURRENT__2000MA
 
 #define NON_STANDARD__PRE_CHG__LITTLE_COLD_CURRNET		PRE_CHG_CURRENT__450MA
 #define NON_STANDARD__PRE_CHG__COOL_CURRNET			PRE_CHG_CURRENT__450MA
@@ -82,7 +83,8 @@ date:2013-6-9
 #define USB__TAPER_CHG__NORMAL_CURRNET			FAST_CHG_CURRENT__600MA
 #define USB__TAPER_CHG__WARM_CURRNET			FAST_CHG_CURRENT__600MA
 
-#define MAX_INPUT_CURRENT_LIMIT__STANDARD		MAX_CHG_CURRENT__2000MA		
+#define MAX_INPUT_CURRENT_LIMIT__STANDARD		MAX_CHG_CURRENT__1800MA//sjc0927//MAX_CHG_CURRENT__2000MA
+#define MAX_INPUT_CURRENT_LIMIT__STANDARD_SUS	MAX_CHG_CURRENT__1500MA//sjc0927
 #define MAX_INPUT_CURRENT_LIMIT__NON_STANDARD	MAX_CHG_CURRENT__500MA
 #define MAX_INPUT_CURRENT_LIMIT__USB				MAX_CHG_CURRENT__500MA
 
@@ -158,11 +160,14 @@ date:2013-6-9
 #define BAT_MIN_DESIGNED_VOLTAGE	2000//mv
 /*charger and battery u/ovp end*/
 
+#define CHG_CURRENT_AICL_COUNT	3//sjc1003 for current aicl
+#define CHG_CURRENT_AICL_VOL		4000//mv sjc1003 for current aicl
+
 /*charging timeout*/
 #define CHG_TIME_OUT
 #define SECONDS_PER_MINUTE 		60;
 #define MAX_CHARGING_TIMEOUT_DCP	6*60*60//6 hours
-#define MAX_CHARGING_TIMEOUT_SDP	8*60*60//8 hours
+#define MAX_CHARGING_TIMEOUT_SDP	10*60*60//sjc1004 8->10//8 hours
 /*macores defined end*/
 
 typedef struct {
@@ -224,6 +229,7 @@ static char *battery_status_str[] = {"invalid", "good", "overheat", "dead", "ovp
 static char *battery_temp_region_str[] = {"invalid", "cold", "little cold", "cool", "normal", "warm", "hot"};
 static char *battery_missing_status_str[] = {"invalid", "missed", "good"};
 
+static int current_aicl_counts = 0;//sjc1003 for current aicl
 static int ovp_counts = 0;//sjc0806
 static int uvp_counts = 0;
 static bool in_ovp_status = false;
@@ -356,6 +362,10 @@ static int smb358_battery_soh_get(struct smb358_charger *smb358_chg);//sjc0826
 static void smb358_battery_soh_set(struct smb358_charger *smb358_chg, int val);
 static int smb358_battery_fcc_get(struct smb358_charger *smb358_chg);
 static void smb358_battery_fcc_set(struct smb358_charger *smb358_chg, int val);
+static bool smb358_early_suspend_status_get(struct smb358_charger *smb358_chg);//sjc0927
+static void smb358_charging_current_aicl_status_set(struct smb358_charger *smb358_chg, bool val);//sjc1003
+static bool smb358_charging_current_aicl_status_get(struct smb358_charger *smb358_chg);
+static void smb358_charging_current_aicl_handle(struct smb358_charger *smb358_chg);
 /*function declare begin*/
 
 /*for i2c data read write funcs begin*/
@@ -501,7 +511,7 @@ static bool smb358_start_charging(struct smb358_charger *smb358_chg)
 	int batt_vol;
 	int batt_temp;
 	
-	if (CHARGER_TYPE__INVALID == smb358_charger_type_get(smb358_chg))
+	if (CHARGER_TYPE__INVALID == smb358_charger_type_get(smb358_chg) || CHARGER_TYPE__OTG == smb358_charger_type_get(smb358_chg))//sjc1014
 		return false;
 	if (is_ftm_mode()) {//sjc0823
 		smb358_suspend_charger(smb358_chg);
@@ -640,6 +650,10 @@ static bool smb358_charging_current_set__standard_fast_cool(struct smb358_charge
 
 static bool smb358_charging_current_set__standard_fast_normal(struct smb358_charger *smb358_chg)
 {
+	if (smb358_battery_voltage_get(smb358_chg) > CHG_CURRENT_AICL_VOL) {//sjc1003
+		smb358_charging_current_aicl_status_set(smb358_chg, true);
+		return smb358_charging_current_write(smb358_chg, STANDARD__FAST_CHG__NORMAL_CURRNET_AICL);
+	}
 	return smb358_charging_current_write(smb358_chg, STANDARD__FAST_CHG__NORMAL_CURRNET);
 }
 
@@ -1207,6 +1221,14 @@ static void smb358_start_charging_work(struct work_struct *work)
 		smb358_charger_voltage_handle(smb358_chg);
 		return;
 	}
+	//sjc1014
+	/*there maybe an uvp when DCP was pulled out last time, if disconnect process was finished
+	 *before suspend operation, the unsuspend operation would not be execute. so the following
+	 */
+	if (smb358_suspended_get(the_smb358_charger)) {
+		smb358_unsuspend_charger(the_smb358_charger);
+		CHG_ERR("%s:smb358 don't unsuspend when charger pulled out last time\n", __func__);
+	}
 	//sjc0810
 	if (smb358_start_charging(smb358_chg)) {
 		//CHG_ERR("===%s: enter===\n", __func__);
@@ -1221,6 +1243,7 @@ static void smb358_charging_current_read(struct smb358_charger *smb358_chg)
 	bool ret = false;
 	u8 value= 0;
 	int chg_cur = 0;
+	return;//DO NOT use
 	ret = smb358_register_read(smb358_chg->client, STAT_REG_B_REGISTER_ADDR, &value);
 	if (ret){
 		CHG_DBG("%s:value read is=%x\n", __func__, value);
@@ -1282,9 +1305,10 @@ static  void smb358_battery_voltage_read(struct smb358_charger *smb358_chg)
 	bool ret = false;
 	u8 value = 0;
 	int bat_vol = 0;
+	return;//DO NOT use
 	ret = smb358_register_read(smb358_chg->client, ADC_STAT_REGISTER_ADDR, &value);
 	if (ret){
-		CHG_DBG("%s: data read =0x%x\n", __func__, value);
+		CHG_DBG("%s: data read=0x%x\n", __func__, value);
 		bat_vol =((value - BAT_VOLTAGE__BASE) * BAT_VOLTAGE__STEP_UV) / 1000;
 		bat_vol = bat_vol > BAT_VOLTAGE__MAX? BAT_VOLTAGE__BASE: bat_vol;
 		smb358_battery_voltage_set(smb358_chg, bat_vol);
@@ -1411,9 +1435,9 @@ static void smb358_charger_voltage_handle(struct smb358_charger *smb358_chg)
 {
 	smb358_charger_status charger_stat_pre = smb358_charger_status_get(smb358_chg);
 	bool ret = false;
-	smb358_charger_status charger_stat_now= CHARGER_STATUS__INVALID;
+	smb358_charger_status charger_stat_now = CHARGER_STATUS__INVALID;
 	
-	if (smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__INVALID)//sjc0806
+	if (smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__INVALID || smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__OTG)//sjc0806//1010
 		return;
 	
 	smb358_charger_uovp_check(smb358_chg);
@@ -1568,7 +1592,7 @@ static bool smb358_battery_ovp_check(struct smb358_charger *smb358_chg)
 static void smb358_battery_voltage_check(struct smb358_charger *smb358_chg)
 {
 	int bat_vol = smb358_battery_voltage_get(smb358_chg);//smb358_battery_status_get(smb358_chg);
-	CHG_DBG("%s:battery voltage =%d\n", __func__, bat_vol);//smb358_battery_voltage_get(smb358_chg));
+	CHG_DBG("%s:battery voltage=%d\n", __func__, bat_vol);//smb358_battery_voltage_get(smb358_chg));
 	if (false == smb358_battery_ovp_check(smb358_chg)){
 		smb358_battery_status_set(smb358_chg, BATTERY_STATUS__OVP);
 		return;
@@ -1599,6 +1623,8 @@ static void smb358_battery_voltage_handle(struct smb358_charger *smb358_chg)
 	}
 	if (BATTERY_STATUS__GOOD == bat_stat_pre && BATTERY_STATUS__OVP == bat_stat_now){
 		CHG_ERR("%s:battery is ovp try to stop charging\n", __func__);
+		if (smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__INVALID || smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__OTG)//sjc1014
+			return;
 		ret = smb358_stop_charging(smb358_chg);
 		if (false == ret)
 			CHG_ERR("%s:trying to stop charging failed\n", __func__);
@@ -1854,7 +1880,9 @@ static void smb358_battery_temperature_handle(struct smb358_charger *smb358_chg)
 	switch (bat_temp_region_now){
 		case BATTERY_TEMP_REGION__COLD:
 		case BATTERY_TEMP_REGION__HOT:
-			ret = smb358_stop_charging(smb358_chg);
+			if (smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__SDP || smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__DCP
+					|| smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__NON_DCP)//sjc1014
+				ret = smb358_stop_charging(smb358_chg);
 			break;
 		case BATTERY_TEMP_REGION__LITTLE_COLD:
 		case BATTERY_TEMP_REGION__COOL:
@@ -1865,7 +1893,7 @@ static void smb358_battery_temperature_handle(struct smb358_charger *smb358_chg)
 		default:
 			break;
 	}
-	if ((false == ret) && (CHARGER_TYPE__INVALID != smb358_charger_type_get(smb358_chg))){//sjc0809
+	if ((false == ret) && (CHARGER_TYPE__INVALID != smb358_charger_type_get(smb358_chg)) && (CHARGER_TYPE__OTG != smb358_charger_type_get(smb358_chg))){//sjc0809//1014
 		CHG_ERR("%s:start or stop charging failed,restore temp region to pre,so that next update we can do this again\n", __func__);
 		smb358_battery_temperature_region_set(smb358_chg, bat_temp_region_pre);		
 	} else {//sjc0809
@@ -2276,7 +2304,7 @@ static void smb358_charging_complete_check(struct smb358_charger *smb358_chg)
 static void smb358_charging_complete_handle(struct smb358_charger *smb358_chg)
 {
 	bool ret = false;
-	CHG_DBG("%s:battery voltage =%d\n", __func__, smb358_battery_voltage_get(smb358_chg));
+	CHG_DBG("%s:battery voltage=%d\n", __func__, smb358_battery_voltage_get(smb358_chg));
 	if (CHARGING_STATUS__CHARGING != smb358_charging_status_get(smb358_chg))
 		return;
 	if (true == smb358_charging_complete_request_get(smb358_chg)){
@@ -2576,6 +2604,8 @@ static void smb358_charging_resume_check(struct smb358_charger *smb358_chg)
 static void smb358_charging_resume_handle(struct smb358_charger *smb358_chg)
 {
 	bool ret = false;
+	if (smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__INVALID || smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__OTG)//sjc1010
+		return;
 	if (CHARGING_STATUS__CHARGING == smb358_charging_status_get(smb358_chg))
 		return;
 	if (true == smb358_charging_resume_request_get(smb358_chg)){
@@ -2609,7 +2639,17 @@ static void sm3b58_irq_flags_handle(struct smb358_charger *smb358_chg)
 	}
 /*charging complete set*/
 	if (smb358_bit_test(smb358_chg, IRQ_FLAGS__CHG_COMPLETE)){
-		smb358_charging_complete_request_set(smb358_chg, true);
+		if (smb358_charging_current_get(smb358_chg) < CHG_COMPLETE_CHECK__CURRENT + 50) {//sjc0930 to avoid the condition that press power key for 7s
+			if ((smb358_battery_temperature_get(smb358_chg) > BAT_TEMP__ZERO
+					&& smb358_battery_temperature_get(smb358_chg) < BAT_TEMP__TEN
+					&& smb358_battery_voltage_get(smb358_chg) > CHG_COMPLETE_CHECK_VOLTAGE__STANDARD__COOL - 30)
+					|| (smb358_battery_temperature_get(smb358_chg) >= BAT_TEMP__TEN
+					&& smb358_battery_temperature_get(smb358_chg) < BAT_TEMP__FORTY_FIVE
+					&& smb358_battery_voltage_get(smb358_chg) > CHG_COMPLETE_CHECK_VOLTAGE__STANDARD__NORMAL - 30))
+				smb358_charging_complete_request_set(smb358_chg, true);
+		}
+		//smb358_charging_complete_request_set(smb358_chg, true);
+		CHG_DBG("===%s:charging complete..., Ichg=%dmA, Vbatt=%dmV===\n", __func__, smb358_charging_current_get(smb358_chg), smb358_battery_voltage_get(smb358_chg));
 		smb358_bit_clear(smb358_chg, IRQ_FLAGS__CHG_COMPLETE);
 	}
 /*charging resume set*/
@@ -2702,7 +2742,7 @@ static void smb358_dump_status(struct smb358_charger *smb358_chg)
 	CHG_DBG("%s:battery status=%s\n", __func__, battery_status_str[smb358_battery_status_get(smb358_chg)]);
 	CHG_DBG("%s:battery temperature=%d\n", __func__, smb358_battery_temperature_get(smb358_chg));
 	CHG_DBG("%s:battery temperature region=%s\n", __func__, battery_temp_region_str[smb358_battery_temperature_region_get(smb358_chg)]);
-	CHG_DBG("%s:battery critical tempearture:(cold < %d), [%d <=little colde< %d), [%d <= cool<  %d),[%d <=normal< %d), [%d <=warm< %d), (hot > %d)\n", 
+	CHG_DBG("%s:battery critical tempearture:(cold<%d), [%d<=little cold<%d), [%d<=cool<%d), [%d<=normal<%d), [%d<=warm<%d), (hot>%d)\n", 
 		__func__, smb358_cold_to_little_cold_critical_temperature_get(smb358_chg),
 		smb358_cold_to_little_cold_critical_temperature_get(smb358_chg), smb358_little_cold_to_cool_critical_temperature_get(smb358_chg),
 		smb358_little_cold_to_cool_critical_temperature_get(smb358_chg), smb358_cool_to_normal_critical_temperature_get(smb358_chg),
@@ -2747,7 +2787,7 @@ static void smb358_power_supply_update(struct smb358_charger *smb358_chg)
 	smb358_battery_voltage_handle(smb358_chg);
 /*battery temp handle*/
 	smb358_battery_temperature_handle(smb358_chg);
-/*software  charging done handle*/
+/*software charging done handle*/
 	smb358_charging_complete_handle(smb358_chg);
 /*charging resume handle*/
 	smb358_charging_resume_handle(smb358_chg);
@@ -2755,6 +2795,8 @@ static void smb358_power_supply_update(struct smb358_charger *smb358_chg)
 	smb358_charging_timeout_handle(smb358_chg);
 /*charger aicl handle*/
 	smb358_aicl_handle(smb358_chg);//sjc0824
+/*charging current aicl handle*/
+	smb358_charging_current_aicl_handle(smb358_chg);//sjc1003
 /*nofify system*/
 	smb358_power_supply_notify(smb358_chg);
 /*dump status.*/
@@ -3076,16 +3118,18 @@ static void smb358_battery_temperature_region_set(struct smb358_charger *smb358_
 		if (smb358_charging_timeout_status_get(the_smb358_charger))//sjc0820
 			smb358_charging_timeout_status_set(the_smb358_charger, false);
 		smb358_aicl_status_set(the_smb358_charger, false);//sjc0824
+		smb358_charging_current_aicl_status_set(the_smb358_charger, false);//sjc1003
 		smb358_input_current_limit_standard_set(the_smb358_charger);//sjc0812 for AICL
 		wake_lock_timeout(&the_smb358_charger->prevent_wlock, HZ);//sjc0823
 		wake_unlock(&the_smb358_charger->wlock);
 	}else{
 		wake_lock(&the_smb358_charger->wlock);
+		current_aicl_counts = 0;//sjc1003
 		ovp_counts = 0;//sjc0806
 		uvp_counts = 0;
 		in_ovp_status = false;
 		in_uvp_status = false;
-		queue_delayed_work(the_smb358_charger->work_queue, &the_smb358_charger->start_charging_work, round_jiffies_relative(msecs_to_jiffies(START_CHG_DELAY)));
+		queue_delayed_work(the_smb358_charger->work_queue, &the_smb358_charger->start_charging_work, msecs_to_jiffies(START_CHG_DELAY));
 	}
 }
 
@@ -3159,7 +3203,7 @@ static int smb358_battery_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		if (!smb358_battery_present_get(the_smb358_charger))//sjc0814
-			val->intval = 0;
+			val->intval = BATTERY_STATUS__INVALID;
 		else
 			val->intval = smb358_battery_status_get(the_smb358_charger);
 		break;
@@ -3238,6 +3282,7 @@ static void smb358_power_supply_data_init(struct smb358_charger *smb358_chg)
 	smb358_charging_timeout_status_set(smb358_chg, false);//sjc0820
 	//smb358_max_chg_timeout_flag_set(smb358_chg, false);
 	smb358_aicl_status_set(smb358_chg, false);//sjc0824
+	smb358_charging_current_aicl_status_set(smb358_chg, false);//sjc1003
 
 	smb358_cold_to_little_cold_critical_temperature_set(smb358_chg, BAT_TEMP__TEN_BELOW_ZERO);
 	smb358_little_cold_to_cool_critical_temperature_set(smb358_chg, BAT_TEMP__ZERO);
@@ -3338,7 +3383,9 @@ static bool smb358_input_current_limit_write(struct smb358_charger *smb358_chg, 
 
 static bool smb358_input_current_limit_standard_set(struct smb358_charger *smb358_chg)
 {
-	return smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__2000MA);
+	if (!smb358_early_suspend_status_get(smb358_chg))//sjc0927
+		return smb358_input_current_limit_write(smb358_chg, MAX_INPUT_CURRENT_LIMIT__STANDARD_SUS);
+	return smb358_input_current_limit_write(smb358_chg, MAX_INPUT_CURRENT_LIMIT__STANDARD);//sjc0927//MAX_CHG_CURRENT__2000MA);
 }
 
 static bool smb358_input_current_limit_non_standard_set(struct smb358_charger *smb358_chg)
@@ -3400,7 +3447,7 @@ static bool smb358_hardware_init(struct smb358_charger *smb358_chg)
 		CHG_ERR("%s: set command register B failed\n", __func__);
 	}
 /* 0x00h: set pre charging and term charging current*/
-	value = PRE_CHG_CURRENT__450MA | TERM_CHG_CURRENT__100MA;
+	value = PRE_CHG_CURRENT__450MA | TERM_CHG_CURRENT__100MA;//sjc1003 100MA->150MA
 	rc = smb358_register_masked_write(smb358_chg->client, CHG_CURRENT_REGISTER_ADDR,
 		CHG_CURRENT__PRE_CHG_MASK |CHG_CURRENT__TERM_CHG_MASK , value);
 	if (false == rc){
@@ -4169,6 +4216,110 @@ out1:
 	return;
 }
 
+//sjc1003 charging current aicl
+static bool smb358_charging_current_aicl_status_get(struct smb358_charger *smb358_chg)
+{
+	return smb358_chg->charging_current_aicl_status;
+}
+
+static void smb358_charging_current_aicl_status_set(struct smb358_charger *smb358_chg, bool val)
+{
+	smb358_chg->charging_current_aicl_status = val;
+}
+
+static void smb358_charging_current_aicl_check_and_set(struct smb358_charger *smb358_chg)
+{
+	//static int counts = 0;
+	
+	if (smb358_battery_voltage_get(smb358_chg) > CHG_CURRENT_AICL_VOL)
+		current_aicl_counts++;
+	else
+		current_aicl_counts = 0;
+
+	if (current_aicl_counts > CHG_CURRENT_AICL_COUNT) {
+		smb358_charging_current_write(smb358_chg, STANDARD__FAST_CHG__NORMAL_CURRNET_AICL);
+		//smb358_charging_current_write_fast(smb358_chg, STANDARD__FAST_CHG__NORMAL_CURRNET_AICL);
+		smb358_charging_current_aicl_status_set(smb358_chg, true);
+		CHG_DBG("===%s:set charging current to 1800mA===\n", __func__);
+	}	
+}
+
+static void smb358_charging_current_aicl_handle(struct smb358_charger *smb358_chg)
+{
+	if (smb358_charger_type_get(smb358_chg) != CHARGER_TYPE__DCP || smb358_charging_status_get(smb358_chg) != CHARGING_STATUS__CHARGING
+			|| smb358_battery_temperature_region_get(smb358_chg) != BATTERY_TEMP_REGION__NORMAL)
+		return;
+
+	if (smb358_charging_current_aicl_status_get(smb358_chg) == true)
+		return;
+
+	smb358_charging_current_aicl_check_and_set(smb358_chg);
+}
+
+//sjc0927
+static bool smb358_early_suspend_status_get(struct smb358_charger *smb358_chg)
+{
+	return smb358_chg->early_suspend_status;
+}
+
+#if defined(CONFIG_HAS_EARLYSUSPEND)
+static void smb358_early_suspend(struct early_suspend *handler)
+{
+	struct smb358_charger *smb358_chg = container_of(handler, struct smb358_charger, early_suspend);
+	
+	CHG_DBG("%s\n", __func__);
+	if (smb358_chg) {
+		smb358_chg->early_suspend_status = true;
+		if (CHARGER_TYPE__DCP == smb358_charger_type_get(smb358_chg) && smb358_chg->aicl_result > 1100) {//sjc1010 only use in charger>1.1A
+			if (!smb358_input_current_limit_write(smb358_chg, MAX_INPUT_CURRENT_LIMIT__STANDARD)) {
+				CHG_ERR("%s:input current limit write failed\n", __func__);
+			} else {
+				if (smb358_register_masked_write(smb358_chg->client, VARIOUS_FUNCTIONS_REGISTER_ADDR,
+						AUTO_INPUT_CURRENT_LIMIT_CONTROL__MASK, AUTO_INPUT_CURRENT_LIMINT_CONTROL__DISABLE)) {
+					if (!smb358_register_masked_write(smb358_chg->client, VARIOUS_FUNCTIONS_REGISTER_ADDR,
+							AUTO_INPUT_CURRENT_LIMIT_CONTROL__MASK, AUTO_INPUT_CURRENT_LIMINT_CONTROL__ENABLE))
+						CHG_ERR("%s:enable failed\n", __func__);
+				} else {
+					CHG_ERR("%s:disable failed\n", __func__);
+				}
+			}
+		}
+	}
+}
+
+static void smb358_late_resume(struct early_suspend *handler)
+{
+	struct smb358_charger *smb358_chg = container_of(handler, struct smb358_charger, early_suspend);
+	
+	CHG_DBG("%s\n", __func__);
+	if (smb358_chg) {
+		smb358_chg->early_suspend_status = false;
+		if (CHARGER_TYPE__DCP == smb358_charger_type_get(smb358_chg) && smb358_chg->aicl_result > 1100) {//sjc1010 only use in charger>1.1A
+			if (!smb358_input_current_limit_write(smb358_chg, MAX_INPUT_CURRENT_LIMIT__STANDARD_SUS))
+				CHG_ERR("%s:input current limit write failed\n", __func__);
+		}
+	}
+}
+
+#endif //defined(CONFIG_HAS_EARLYSUSPEND)
+static void smb358_suspend_int(struct smb358_charger *smb358_chg)
+{
+	smb358_chg->early_suspend_status = false;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	smb358_chg->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
+	smb358_chg->early_suspend.suspend = smb358_early_suspend;
+	smb358_chg->early_suspend.resume = smb358_late_resume;
+	register_early_suspend(&smb358_chg->early_suspend);
+#endif
+}
+
+static void smb358_suspend_deinit(struct smb358_charger *smb358_chg)
+{
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&smb358_chg->early_suspend);
+#endif
+}
+
 //sjc0826
 static int smb358_battery_soh_get(struct smb358_charger *smb358_chg)
 {
@@ -4189,6 +4340,7 @@ static void smb358_battery_fcc_set(struct smb358_charger *smb358_chg, int val)
 {
 	smb358_chg->power_supply_data.battery_fcc = val;
 }
+
 //sjc0824aicl
 static bool smb358_aicl_status_get(struct smb358_charger *smb358_chg)
 {
@@ -4198,6 +4350,8 @@ static bool smb358_aicl_status_get(struct smb358_charger *smb358_chg)
 static void smb358_aicl_status_set(struct smb358_charger *smb358_chg, bool val)
 {
 	smb358_chg->aicl_status = val;
+	if (val == false)
+		smb358_chg->aicl_result = 0;//sjc1010
 }
 
 static void smb358_aicl_check(struct smb358_charger *smb358_chg)
@@ -4258,6 +4412,7 @@ static int smb358_aicl_results(struct smb358_charger *smb358_chg)
 				break;
 		}
 	}
+	smb358_chg->aicl_result = result;//sjc1010
 	return result;
 }
 
@@ -4680,6 +4835,7 @@ static int __devinit smb358_probe(struct i2c_client *client,
 	smb358_locks_init(smb358_chg);
 	smb358_works_init(smb358_chg);
 	smb358_timer_init(smb358_chg);//sjc0820
+	smb358_suspend_int(smb358_chg);//sjc0927
 
 	smb358_irq_init(smb358_chg);
 	
@@ -4709,10 +4865,11 @@ static int __devexit smb358_remove(struct i2c_client *client)
 	
 	free_irq(smb358_chg->irq, NULL);
 	gpio_free(smb358_chg->charger_platform_data.irq_gpio);
-	kfree(smb358_chg);
 
+	smb358_suspend_deinit(smb358_chg);//sjc0927
 	wake_lock_destroy(&smb358_chg->wlock);//sjc0823
 	wake_lock_destroy(&smb358_chg->prevent_wlock);
+	kfree(smb358_chg);
 	
 	return 0;
 }

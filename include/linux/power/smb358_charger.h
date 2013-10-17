@@ -1,6 +1,7 @@
 #ifndef __SMB358_CHARGER_H__
 #define __SMB358_CHARGER_H__
 #include <linux/power_supply.h>
+#include <linux/earlysuspend.h>
 
 #define SMB358_CHARGER_NAME "smb358_charger"
 
@@ -170,6 +171,10 @@ struct smb358_charger {
 	bool				otg_enabled;//sjc0808otg
 	struct hrtimer	max_chg_timeout_timer;//sjc0820
 	bool				aicl_status;//sjc0824
+	int				aicl_result;//sjc1010
+	struct early_suspend	early_suspend;//sjc0927
+	bool				early_suspend_status;//sjc0927
+	bool				charging_current_aicl_status;//sjc1003
 };
 
 void smb358_charger_connected(smb358_charger_type chg_type);

@@ -960,7 +960,15 @@ static int32_t msm_camera_m9mo_ext_power_ctrl(int enable)
 {
 
 	int rc = 0;
-
+	static int requested = 0;
+	//request resource first time
+	if(requested == 0)
+	{   
+	    requested = 1;
+      	gpio_request(23,"m9mo_pwr0");
+      	gpio_request(34,"m9mo_pwr1");
+      	gpio_request(36,"m9mo_pwr2");
+    }
 	if (enable) {
 		gpio_direction_output(
 				34,

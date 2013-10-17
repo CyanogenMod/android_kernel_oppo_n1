@@ -2321,14 +2321,22 @@ static int synaptics_ts_probe(
 	unsigned long irqflags;
 	int force_update;
 
-/* OPPO 2013-09-22 ranfei Add begin for 在AT，WLAN和RF模式不注册触摸屏 */
+/* OPPO 2013-09-28 hewei Add begin for 在AT，WLAN和RF模式下不使用黑屏手势功能 */
+   	 int not_need_update = 0;
 #ifdef CONFIG_VENDOR_EDIT
-    if(get_boot_mode() == MSM_BOOT_MODE__FACTORY ||
-       get_boot_mode() == MSM_BOOT_MODE__RF ||
-       get_boot_mode() == MSM_BOOT_MODE__WLAN )
-        return -EPERM;
+    	if(get_boot_mode() == MSM_BOOT_MODE__FACTORY ||
+       		get_boot_mode() == MSM_BOOT_MODE__RF ||
+       			get_boot_mode() == MSM_BOOT_MODE__WLAN ) {
+        			not_need_update = 1;
+    }
+/* OPPO 2013-10-07 wangjc Add begin for solve the rf test mode problem */
+	if(get_boot_mode() == MSM_BOOT_MODE__RF ||
+       			get_boot_mode() == MSM_BOOT_MODE__WLAN) {
+		return -EPERM;
+	}
+/* OPPO 2013-10-07 wangjc Add end */
 #endif
-/* OPPO 2013-09-22 ranfei Add end */
+/* OPPO 2013-09-28 hewei Add end */
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		print_ts(TS_ERROR, KERN_ERR "synaptics_ts_probe: need I2C_FUNC_I2C\n");
@@ -2412,17 +2420,19 @@ firmware_update:
 #endif
 /* OPPO 2013-07-30 ranfei Modify end */
 		}
+/*OPPO 2013-09-28 hewei Add begin for 在AT，WLAN和RF模式下不升级触摸屏固件*/
+		if(not_need_update == 0) {
 		if (fw_update_version != 0 && fw_update_data != NULL && (force_update
 			|| (ts->version[2] != ((fw_update_version>>8)&0xFF)
 				|| ts->version[3] < (fw_update_version&0xFF))))
 		{
 		    print_ts(TS_ERROR, "start to update firmware\n");
             force_update = 0;
-#if 0
 			display_rle_file(TP_UPDATE_RLE_FILE);
-#endif
 			CompleteReflash(client, fw_update_data);
 			goto detect_device;
+		}
+/*OPPO 2013-09-28 hewei Add end*/		
 		}
 	}
 #endif
@@ -2526,11 +2536,12 @@ firmware_update:
     set_bit(KEY_F7, ts->input_dev->keybit);
     set_bit(KEY_F8, ts->input_dev->keybit);
 	atomic_set(&ts->double_tap_number, 0);
-    /*ranfei modify for N1 发布会临时打开这四个开关*/
-	atomic_set(&ts->double_tap_enable, 1);   
-    atomic_set(&ts->flashlight_enable, 1);
-    atomic_set(&ts->camera_enable, 1);
-    atomic_set(&ts->music_enable, 1);
+    /*ranfei modify for N1 发布会临时打开这四个开关,在工厂模式里面不打开*/
+    /*ranfei 设置菜单会设置，内核都默认关闭*/
+	atomic_set(&ts->double_tap_enable, 0);   
+    atomic_set(&ts->flashlight_enable, 0);
+    atomic_set(&ts->camera_enable, 0);
+    atomic_set(&ts->music_enable, 0);
 #endif
 #ifdef SUPPORT_GLOVES_MODE
     atomic_set(&ts->glove_mode_enable, 0);
@@ -2734,6 +2745,12 @@ static int synaptics_ts_resume(struct i2c_client *client)
 		enable_irq(client->irq);
 /* OPPO 2013-05-02 huanggd Add end*/	
 		synaptics_set_int_mask(ts, 1);
+/* OPPO 2013-10-15 ranfei Add begin for 在唤醒的时候上报一次up事件 */
+#ifdef CONFIG_VENDOR_EDIT
+        input_mt_sync(ts->input_dev);
+        input_sync(ts->input_dev);
+#endif
+/* OPPO 2013-10-15 ranfei Add end */
 		up(&synaptics_sem);
 		return 0;
 	}
@@ -2766,6 +2783,12 @@ static int synaptics_ts_resume(struct i2c_client *client)
 	else
 		synaptics_set_int_mask(ts, 1); /* enable abs int */
 
+/* OPPO 2013-10-15 ranfei Add begin for 在唤醒的时候上报一次up事件 */
+#ifdef CONFIG_VENDOR_EDIT
+    input_mt_sync(ts->input_dev);
+    input_sync(ts->input_dev);
+#endif
+/* OPPO 2013-10-15 ranfei Add end */
 	up(&synaptics_sem);
 	return 0;
 }

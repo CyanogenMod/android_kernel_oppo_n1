@@ -5811,19 +5811,6 @@ static void tabla_codec_report_plug(struct snd_soc_codec *codec, int insertion,
 	pr_debug("%s: enter insertion %d hph_status %x\n",
 		 __func__, insertion, tabla->hph_status);
 	if (!insertion) {
-		/*OPPO 2013-09-02 zhzhyon Add for reason*/
-		if(get_pcb_version() == PCB_VERSION_EVT3_N1T ||
-			get_pcb_version() == PCB_VERSION_PVT3_TD ||
-			get_pcb_version() == PCB_VERSION_EVT_N1)
-		{
-			msleep(50);
-			if(!tabla_hs_gpio_level_remove(tabla))
-			{
-				return;
-			}
-
-		}
-		/*OPPO 2013-09-02 zhzhyon Add end*/
 		/* Report removal */
 		tabla->hph_status &= ~jack_type;
 		if (tabla->mbhc_cfg.headset_jack) {
@@ -5906,6 +5893,22 @@ static void tabla_codec_report_plug(struct snd_soc_codec *codec, int insertion,
 			/*OPPO 2012-07-27 zhzhyon Add end*/
 		} else if (jack_type == SND_JACK_LINEOUT)
 			tabla->current_plug = PLUG_TYPE_HIGH_HPH;
+		/*OPPO 2013-09-18 zhzhyon Add for reason*/
+		#ifdef CONFIG_VENDOR_EDIT
+		if(get_pcb_version() >= PCB_VERSION_EVT3_N1F)
+		{
+			if(tabla_hs_gpio_level_remove(tabla))
+			{
+				tabla->hph_status &= ~jack_type;
+				oppo_hs_detect_update(0, 0);
+				tabla->mbhc_polling_active = false;
+				tabla->current_plug = PLUG_TYPE_NONE;
+
+				return;
+			}
+		}
+		#endif
+		/*OPPO 2013-09-18 zhzhyon Add end*/
 		if (tabla->mbhc_cfg.headset_jack) {
 			pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 				 jack_type, tabla->hph_status);
@@ -7413,6 +7416,16 @@ static int tabla_codec_get_adc_value_publsh(struct snd_soc_codec *codec,bool hig
 
 	sort(mic_mv,num_det);
 
+	/*OPPO 2013-09-18 zhzhyon Add for reason*/
+	if((mic_mv[num_det - 1] - mic_mv[0]) > 500)
+	{
+		printk(KERN_INFO "headset insersion is not stable\n");
+		*valid = 0;
+		return -1;
+
+	}
+	/*OPPO 2013-09-18 zhzhyon Add end*/
+
 	if(flag)
 	{
 		*peak = mic_mv[num_det - 1];
@@ -7565,6 +7578,13 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 		plug_type = PLUG_TYPE_HIGH_HPH;
 		
 	} 
+	/*OPPO 2013-09-18 zhzhyon Add for reason*/
+	else if((get_pcb_version() >= PCB_VERSION_EVT3_N1F) &&
+						(max > plug_type_ptr->v_hs_max-100))
+	{
+		plug_type = PLUG_TYPE_HIGH_HPH;
+	}
+	/*OPPO 2013-09-18 zhzhyon Add end*/
 	else
 	{	
 	       /*OPPO 2013-01-18 liuyan Add for pop sound*/
@@ -7587,7 +7607,18 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 		{
 			adc_value[1] = tabla_codec_get_adc_value(codec,highhph);
 		}
+		/*OPPO 2013-09-18 zhzhyon Add for reason*/
+		if(get_pcb_version() >= PCB_VERSION_EVT3_N1F)
+		{
+			if((adc_value[1] < plug_type_ptr->v_no_mic)
+					||(adc_value[1] > plug_type_ptr->v_hs_max-100))
+			{
+				plug_type = PLUG_TYPE_INVALID;
 
+				return plug_type;
+			}
+		}
+		/*OPPO 2013-09-18 zhzhyon Add end*/
 		if(adc_value[0] > adc_value[1])
 		{
 			/*OPPO 2013-09-13 zhzhyon Add for reason*/
@@ -7723,9 +7754,7 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 							SND_JACK_HEADPHONE);
 			}
 			/*OPPO 2013-09-02 zhzhyon Modify for reason*/
-			if(get_pcb_version() >= PCB_VERSION_EVT3_N1F ||
-				get_pcb_version() == PCB_VERSION_PVT3_TD ||
-				get_pcb_version() == PCB_VERSION_EVT_N1 )
+			if(get_pcb_version() >= PCB_VERSION_EVT3_N1F)
 			{
 				headp_count++;
 				if(headp_count == 2)
@@ -7744,9 +7773,7 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 		/*OPPO 2013-09-02 zhzhyon Add for reason*/
 		else if(plug_type == PLUG_TYPE_HIGH_HPH)
 		{
-			 if(get_pcb_version() >= PCB_VERSION_EVT3_N1F ||
-				get_pcb_version() == PCB_VERSION_PVT3_TD || 
-				get_pcb_version() == PCB_VERSION_EVT_N1)
+			 if(get_pcb_version() >= PCB_VERSION_EVT3_N1F)
 			 {			
 				continue;
 			 }
@@ -7785,17 +7812,7 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 			pr_debug("Attempt %d found correct plug %d\n", retry,
 				 plug_type);
 			correction = true;
-			/*OPPO 2013-09-02 zhzhyon Modify for reason*/
-			 if(get_pcb_version() == PCB_VERSION_PVT3_TD)
-			 {
-				if((pt_headset_cnt == 2) || (pt_gnd_mic_swap_cnt == 2))
-					break;
-			 }
-			 else
-			 {
-			 	break;
-			 }
-			/*OPPO 2013-09-02 zhzhyon Modify end*/
+			break;
 		}
 	}
 
@@ -7824,6 +7841,7 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 }
 
 /*OPPO 2013-09-03 zhzhyon Add for 13005 new headset detect*/
+#ifdef CONFIG_VENDOR_EDIT
 #define DET_NUM_ADC_PUBLISH 4
 static void tabla_codec_decide_gpio_plug_publish(struct snd_soc_codec *codec)
 {
@@ -7854,6 +7872,13 @@ static void tabla_codec_decide_gpio_plug_publish(struct snd_soc_codec *codec)
 		{
 			break;
 		}
+		/*OPPO 2013-09-18 zhzhyon Modify for reason*/
+		#if 0
+		if(plug_type[i] == PLUG_TYPE_GND_MIC_SWAP)
+		{
+			break;
+		}
+		#else
 		if(i > 0)
 		{
 			if((plug_type[i] == plug_type[i-1]) )
@@ -7862,6 +7887,8 @@ static void tabla_codec_decide_gpio_plug_publish(struct snd_soc_codec *codec)
 					break;
 			}
 		}
+		#endif
+		/*OPPO 2013-09-18 zhzhyon Modify end*/
 	}
 
 	if(i == DET_NUM_ADC_PUBLISH) 
@@ -7902,65 +7929,8 @@ static void tabla_codec_decide_gpio_plug_publish(struct snd_soc_codec *codec)
 
 	pr_debug("%s: leave\n", __func__);
 }
-
-
-/*2013-09-02 zhzhyon Add for 13017-1 and 13005 EVT headset detect*/
-/* called under codec_resource_lock acquisition */
-#define DET_NUM_ADC 4
-static void tabla_codec_decide_gpio_plug_modify(struct snd_soc_codec *codec)
-{
-	enum tabla_mbhc_plug_type plug_type[DET_NUM_ADC];
-	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-	int i = 0;
-
-	printk("%s: enter\n", __func__);
-
-	tabla_turn_onoff_override(codec, true);
-
-
-	for(i = 0;i < DET_NUM_ADC;i++)
-	{
-		
-		plug_type[i] = tabla_codec_get_plug_type(codec, true);
-		if(i > 0)
-		{
-			if((plug_type[i] == plug_type[i-1]) )
-			{
-				if(plug_type[i] == PLUG_TYPE_HEADSET ||
-					plug_type[i] == PLUG_TYPE_HEADPHONE)
-				break;
-			}
-		}
-	}
-
-	if(i == DET_NUM_ADC) 
-	{
-		i = i -1;
-	}
-	
-	tabla_turn_onoff_override(codec, false);
-
-	if (tabla_hs_gpio_level_remove(tabla)) 
-	{
-		printk("%s: GPIO value is low when determining plug\n",
-			 __func__);
-		return;
-	}
-	if(plug_type[i] == PLUG_TYPE_HIGH_HPH)
-	{
-		tabla_schedule_hs_detect_plug(tabla,
-					&tabla->hs_correct_plug_work);
-	}
-	else
-	{
-
-		tabla_find_plug_and_report(codec, plug_type[i]);
-
-	}
-
-	pr_debug("%s: leave\n", __func__);
-}
-/*2013-09-02 zhzhyon Add end*/
+#endif
+/*OPPO 2013-09-03 zhzhyon Add end*/
 
 /* called under codec_resource_lock acquisition */
 static void tabla_codec_decide_gpio_plug(struct snd_soc_codec *codec)
@@ -8053,15 +8023,6 @@ static void tabla_codec_detect_plug_type(struct snd_soc_codec *codec)
 			if(get_pcb_version() >= PCB_VERSION_EVT3_N1F)
 			{
 				tabla_codec_decide_gpio_plug_publish(codec);
-			}
-			else if(get_pcb_version() == PCB_VERSION_EVT3_N1T ||
-				get_pcb_version() == PCB_VERSION_EVT_N1)
-			{
-				tabla_codec_decide_gpio_plug_modify(codec);
-			}
-			else if(get_pcb_version() == PCB_VERSION_PVT3_TD)
-			{
-				tabla_codec_decide_gpio_plug_modify(codec);
 			}
 			else
 			{
