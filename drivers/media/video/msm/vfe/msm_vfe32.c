@@ -6145,12 +6145,14 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	if (!vfe32_ctrl->share_ctrl->vfebase) {
 		if (arg) {
 			vfe_params = (struct msm_camvfe_params *)arg;
+			if (vfe_params == NULL)
+				return -EFAULT;
 			cmd = vfe_params->vfe_cfg;
-			if (cmd->cmd_type != VFE_CMD_STATS_REQBUF &&
+			if (cmd == NULL || (cmd->cmd_type != VFE_CMD_STATS_REQBUF &&
 				cmd->cmd_type != VFE_CMD_STATS_ENQUEUEBUF &&
 				cmd->cmd_type != VFE_CMD_STATS_FLUSH_BUFQ &&
 				cmd->cmd_type != VFE_CMD_STATS_UNREGBUF &&
-				subdev_cmd != VIDIOC_MSM_VFE_RELEASE) {
+				subdev_cmd != VIDIOC_MSM_VFE_RELEASE)) {
 				pr_err("%s: base address unmapped\n", __func__);
 				return -EFAULT;
 			}
