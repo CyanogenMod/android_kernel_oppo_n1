@@ -24,6 +24,8 @@
 #include <linux/gpio.h>
 #include <linux/switch.h>
 
+#define CONFIG_VENDOR_EDIT
+
 #define PM8921_GPIO_BASE        NR_GPIO_IRQS
 #define PM8921_GPIO_PM_TO_SYS(pm_gpio)  (pm_gpio - 1 + PM8921_GPIO_BASE)
 #define LCD_TE_GPIO  83
