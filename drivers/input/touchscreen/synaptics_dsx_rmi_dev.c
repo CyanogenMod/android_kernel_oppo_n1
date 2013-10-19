@@ -28,6 +28,7 @@
 #include <linux/uaccess.h>
 #include <linux/cdev.h>
 
+#define CONFIG_VENDOR_EDIT
 
 #define CHAR_DEVICE_NAME "rmi"
 #define DEVICE_CLASS_NAME "rmidev"
