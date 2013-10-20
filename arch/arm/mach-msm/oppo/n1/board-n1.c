@@ -2941,7 +2941,7 @@ static struct platform_device gpio_keys_device_n1 ={
 
 struct gpio_keys_button camera_rotate_keys[] = {
 	{
-		.code              = KEY_F1,
+		.code              = KEY_FLIP_CAMERA,
 		.gpio              = GPIO_KEY_MR1,
 		.active_low        = 1,
 		.desc              = "MRsensor_key1",
