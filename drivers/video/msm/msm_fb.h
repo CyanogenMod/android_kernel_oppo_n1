@@ -230,7 +230,6 @@ struct msm_fb_data_type {
 /* OPPO 2012-11-30 huyu modify for boot LOGO bluescreen*/
 	uint32 sec_mapped;
 	uint32 sec_active;
-	uint32 max_map_size;
 };
 struct msm_fb_backup_type {
 	struct fb_info info;
