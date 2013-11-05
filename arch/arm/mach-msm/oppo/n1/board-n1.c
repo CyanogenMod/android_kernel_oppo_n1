@@ -2951,7 +2951,7 @@ struct gpio_keys_button camera_rotate_keys[] = {
 		.can_disable       = true,
 	},
 	{
-		.code              = KEY_F1,
+		.code              = KEY_FLIP_CAMERA,
 		.gpio              = GPIO_KEY_MR2,
 		.active_low        = 1,
 		.desc              = "MRsensor_key2",
