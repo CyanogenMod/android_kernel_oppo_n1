@@ -1522,9 +1522,9 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	var->grayscale = 0,	/* No graylevels */
 	var->nonstd = 0,	/* standard pixel format */
 	var->activate = FB_ACTIVATE_VBL,	/* activate it at vsync */
-#ifdef CONFIG_MACH_OPPO
-	var->height = 110;
-	var->width = 62;
+#ifdef CONFIG_MACH_N1
+	var->height = 130;
+	var->width = 73;
 #else
 	var->height = -1,	/* height of picture in mm */
 	var->width = -1,	/* width of picture in mm */
