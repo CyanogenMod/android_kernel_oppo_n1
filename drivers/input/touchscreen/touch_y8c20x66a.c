@@ -30,6 +30,8 @@
 ** ranfei@OnlineRD.Driver.TouchScreen   2013/09/23   1.1	    shut down touchpad after probe
 ** ranfei@OnlineRD.Driver.TouchSCreen   2013/10/10   1.2        当使能的时候，由控制复位变成控制电源
 ** ranfei@OnlineRD.Driver.TouchSCreen   2013/10/15   1.3        修改睡眠唤醒时断电与上电的bug
+** ranfei@OnlineRD.Driver.TouchSCreen   2013/10/28   1.4        在断电之后把中断处理给取消掉
+** ranfei@OnlineRD.Driver.TouchSCreen   2013/10/28   1.5        在检测到大面积的时候压力上报0，减少误操作
 ** ------------------------------------------------------------------------------
 ** 
 ************************************************************************************/
@@ -107,7 +109,7 @@ struct y8c20x66a_ts_data {
 	int (*power)(int on);
 	struct early_suspend early_suspend;
 	#ifdef CYPRESS_CHIP
-	uint8_t finger_data[3];
+	uint8_t finger_data[6];
 	#endif
 	#ifdef MICROCHIP_CHIP
 	uint8_t finger_data[7];
@@ -116,6 +118,7 @@ struct y8c20x66a_ts_data {
     int reset_gpio;
 };
 
+DEFINE_MUTEX(i2c_bus_mutex);//for GSBI1_I2C err
 
 static struct y8c20x66a_ts_data   *syna_ts_data;
 static DEFINE_SEMAPHORE(y8c20x66a_sem);
@@ -221,7 +224,7 @@ retry_block:
 	g_cypress_id  = (data[8] << 8) | data[9];
     g_cypress_ver = (data[4] << 8) | data[5];
     boot_mode = !!data[0];
-    if(g_cypress_ver >= 0x112 && g_cypress_ver <= 0x117)  //temp
+    if(g_cypress_ver >= 0x108 && g_cypress_ver <= 0x117)  //ranfei modify
         boot_mode = 1;
     print_ts(TS_INFO, KERN_ERR"cypress chip id is [0x%x], version is [0x%x], boot mode is [%d]\n",
         g_cypress_id, g_cypress_ver, boot_mode);
@@ -363,6 +366,10 @@ static void y8c20x66a_ts_work_func(struct work_struct *work)
 
 		} else {
 			print_ts(TS_TRACE, KERN_ERR"[%d]finger up^^^^^^^^^\n", buffer);
+            if(ts->finger_data[5]) {
+                input_report_abs(ts->input_dev, ABS_PRESSURE, 0);
+                input_sync(ts->input_dev);
+            }
 			input_report_key(ts->input_dev, BTN_TOUCH, 0);
 	    }
         input_sync(ts->input_dev);			
@@ -683,11 +690,22 @@ static int touch_pad_enable_proc_write( struct file *filp, const char __user *bu
 	val = (val == 0 ? 0:1);
 	
 	if ((val == 1) && atomic_read(&ts->touch_enable) == 0) {
+        mutex_lock(&i2c_bus_mutex);//for GSBI1_I2C err
         ts->power(1);
 		atomic_set(&ts->touch_enable, val);
+        mutex_unlock(&i2c_bus_mutex);//for GSBI1_I2C err
+        if (ts->use_irq)
+		    enable_irq(ts->client->irq);
+
+	    if (!ts->use_irq)
+		    hrtimer_start(&ts->timer, ktime_set(1, 0), HRTIMER_MODE_REL);
         
 		print_ts(TS_INFO, KERN_INFO "%s: touch pad enable \n", __func__);
 	} else if ((val == 0) && atomic_read(&ts->touch_enable) == 1) {
+	    if (ts->use_irq)
+		    disable_irq(ts->client->irq);
+	    else
+		    hrtimer_cancel(&ts->timer);
         ts->power(0);
 		atomic_set(&ts->touch_enable, val);
 
@@ -919,6 +937,10 @@ static int y8c20x66a_ts_probe(
     init_touch_proc(ts);
 
     atomic_set(&ts->touch_enable, 0);
+    if (ts->use_irq)
+		disable_irq(client->irq);
+	else
+		hrtimer_cancel(&ts->timer); 
     if (ts->power)
 		ts->power(0);
 
@@ -989,7 +1011,9 @@ static int y8c20x66a_ts_resume(struct i2c_client *client)
 
     if(atomic_read(&ts->touch_enable) == 1) {
 	    if (ts->power) {
+            mutex_lock(&i2c_bus_mutex);//for GSBI1_I2C err
 		    ret = ts->power(1);
+            mutex_unlock(&i2c_bus_mutex);//for GSBI1_I2C err
 		    if (ret < 0)
 			    print_ts(TS_ERROR, KERN_ERR "y8c20x66a_ts_resume power on failed\n");
 	    }

@@ -54,13 +54,14 @@
 /******************* tp function switch **************************/
 #define TP_UPDATE_FIRMWARE  1
 #define SUPPORT_DOUBLE_TAP  1
-#define SUPPORT_GLOVES_MODE
+//#define SUPPORT_GLOVES_MODE  //ranfei modify for PVT
 /*****************************************************************/
 
 #include "synaptics_firmware_truly.h"
 #include "synaptics_firmware_wintek.h"
 #include "synaptics_firmware_tpk.h"
-#include "synaptics_firmware.h"
+#include "synaptics_firmware_tpk_n1.h"
+#include "synaptics_firmware_yfo_n1.h"
 #define TP_UPDATE_RLE_FILE	"tpupdate.rle"
 extern int display_rle_file(char *filename);
 
@@ -161,8 +162,8 @@ static int syna_log_level = TS_INFO;
 	} while (0) 
 /*****************************************************************/
 /*************** tp vendor id definition *************************/
-#define TP_VENDOR_WINTEK	1	//胜华
 #define TP_VENDOR_TPK		0	//TPK
+#define TP_VENDOR_YFO	    1	//洋华
 #define TP_VENDOR_TRULY		3	//信利
 /*****************************************************************/
 /*************** tp command definition *************************/
@@ -324,12 +325,12 @@ static ssize_t tp_test_show(struct device *dev,
 		rx2rx_upper_limit = DiagonalUpperLimit_TRULY;
 		raw_cap_data = (const int16_t *)raw_cap_data_truly_3035;
 	}
-	else if (syna_ts_data->vendor_id == TP_VENDOR_WINTEK)
+	else if (syna_ts_data->vendor_id == TP_VENDOR_YFO)
 	{
-		tx_num = TX_NUM_WINTEK;
-		rx_num = RX_NUM_WINTEK;
-		rx2rx_lower_limit = DiagonalLowerLimit_WINTEK;
-		rx2rx_upper_limit = DiagonalUpperLimit_WINTEK;
+		tx_num = TX_NUM_YFO_N1;
+		rx_num = RX_NUM_YFO_N1;
+		rx2rx_lower_limit = DiagonalLowerLimit_YFO;
+		rx2rx_upper_limit = DiagonalUpperLimit_YFO;
 		raw_cap_data = (const int16_t *)raw_cap_data_wintek_9093;
 	}
 	else if (syna_ts_data->vendor_id == TP_VENDOR_TPK)
@@ -1604,13 +1605,13 @@ static void synaptics_ts_delay_work(struct work_struct *work)
 		{
 			CompleteReflash(ts->client, Syna_Firmware_Data_Truly);
 		}
-		else if (ts->vendor_id == TP_VENDOR_WINTEK)
+		else if (ts->vendor_id == TP_VENDOR_YFO)
 		{
-			CompleteReflash(ts->client, Syna_Firmware_Data_Wintek);
+			CompleteReflash(ts->client, Syna_Firmware_Data_YFO_N1);
 		}
 		else if (ts->vendor_id == TP_VENDOR_TPK)
 		{
-			CompleteReflash(ts->client, Syna_Firmware_Data_TPK);
+			CompleteReflash(ts->client, Syna_Firmware_Data_TPK_N1);
 		}
 		synaptics_scan_param(ts);
 		synaptics_init_panel(ts);
@@ -2403,11 +2404,21 @@ firmware_update:
 			fw_update_version = FIRMWARE_TRULY_VERSION;
 			fw_update_data = Syna_Firmware_Data_Truly;
 		}
+/* OPPO 2013-10-29 ranfei Modify begin for N1 */
+#if 0
 		else if (ts->vendor_id == TP_VENDOR_WINTEK)
 		{
 			fw_update_version = FIRMWARE_WINTEK_VERSION;
 			fw_update_data = Syna_Firmware_Data_Wintek;
 		}
+#else
+        else if (ts->vendor_id == TP_VENDOR_YFO) // 洋华
+		{
+	        fw_update_version = FIRMWARE_YFO_VERSION_N1;
+			fw_update_data = Syna_Firmware_Data_YFO_N1;
+        }
+#endif
+/* OPPO 2013-10-29 ranfei Modify end */
 		else if (ts->vendor_id == TP_VENDOR_TPK)
 		{
 /* OPPO 2013-07-30 ranfei Modify begin for reason */
@@ -2415,8 +2426,8 @@ firmware_update:
 			fw_update_version = FIRMWARE_TPK_VERSION;
 			fw_update_data = Syna_Firmware_Data_TPK;
 #else
-	        fw_update_version = FIRMWARE_VERSION;
-			fw_update_data = Syna_Firmware_Data;
+	        fw_update_version = FIRMWARE_TPK_VERSION_N1;
+			fw_update_data = Syna_Firmware_Data_TPK_N1;
 #endif
 /* OPPO 2013-07-30 ranfei Modify end */
 		}
@@ -2505,14 +2516,8 @@ firmware_update:
 		// TP width:62.52,  LCD width:61.88
 		ts->snap_right = max_x * 64/6252;
 	}
-	else if (ts->vendor_id == TP_VENDOR_WINTEK)
+	else if (ts->vendor_id == TP_VENDOR_YFO)
 	{
-		// TP height:117.2mm, LCD:110.6mm
-		ts->virtual_key_height = max_y * 66/1172;
-		ts->snap_top = 0;
-		ts->snap_left = 0;
-		// TP width:63.12,  LCD width:61.88
-		ts->snap_right = max_x * 124/6312;
 	}
 	else //if (ts->vendor_id == TP_VENDOR_TPK)
 	{

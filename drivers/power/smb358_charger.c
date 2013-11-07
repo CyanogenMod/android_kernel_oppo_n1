@@ -14,7 +14,7 @@ date:2013-6-9
 #include <linux/mutex.h>
 #include <linux/power_supply.h>
 #include <linux/slab.h>
-#include "smb358_regs.h"
+#include <smb358_regs.h>
 #include <linux/power/smb358_charger.h>
 #include <linux/pcb_version.h>
 #include <linux/delay.h>
@@ -148,6 +148,7 @@ date:2013-6-9
 #define CHARGER_UVP_CHECK_COUNT	3	
 #define CHARGER_OVP_VOLTAGE		5800//6800//mv
 #define CHARGER_UVP_VOLTAGE		4300//4500//mv
+#define CHARGER_VOLTAGE_READ_TIMES	2
 
 #define BATTERY_OVP_CHECK_COUNT	3
 #define BATTERY_OVP_VOLTAGE		4500//mv
@@ -234,9 +235,10 @@ static int ovp_counts = 0;//sjc0806
 static int uvp_counts = 0;
 static bool in_ovp_status = false;
 static bool in_uvp_status = false;
-static struct smb358_charger *the_smb358_charger;
+static struct smb358_charger *the_smb358_charger = NULL;
 static struct oppo_battery_fuelgauge *batt_fuelgauge = NULL;
 
+extern struct mutex i2c_bus_mutex;//sjc1024 for GSBI1_I2C err
 extern int get_boot_mode(void);//sjc0823 for FTM/RF/WLAN
 
 enum {
@@ -395,7 +397,9 @@ static bool smb358_register_read(struct i2c_client *client, int reg, u8 *val)
 	struct smb358_charger *smb358_chg;
 
 	smb358_chg = i2c_get_clientdata(client);
+	mutex_lock(&i2c_bus_mutex);//sjc1024 for GSBI1_I2C err
 	ret = i2c_smbus_read_byte_data(smb358_chg->client, reg);
+	mutex_unlock(&i2c_bus_mutex);//sjc1024 for GSBI1_I2C err
 	if (ret < 0) {
 		CHG_ERR("i2c read fail: can't read from reg addr=%02x: error=%d\n", reg, ret);
 		return false;
@@ -411,7 +415,9 @@ static bool smb358_register_write(struct i2c_client *client, int reg, u8 val)
 	struct smb358_charger *smb358_chg;
 
 	smb358_chg = i2c_get_clientdata(client);
+	mutex_lock(&i2c_bus_mutex);//sjc1024 for GSBI1_I2C err
 	ret = i2c_smbus_write_byte_data(smb358_chg->client, reg, val);
+	mutex_unlock(&i2c_bus_mutex);//sjc1024 for GSBI1_I2C err
 	if (ret < 0) {
 		CHG_ERR("i2c write fail: can't write val=%2x to reg addr=%2x: error=%d\n", val, reg, ret);
 		return false;
@@ -503,6 +509,15 @@ static bool smb358_charging_current_write(struct smb358_charger *smb358_chg, int
 		CHG_DBG("%s:not charging\n", __func__);
 		return true;
 	}
+}
+
+static bool smb358_is_charger_in(struct smb358_charger *smb358_chg)//sjc1023
+{
+	if (smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__SDP || smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__DCP
+			|| smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__NON_DCP)
+		return true;
+	else
+		return false;
 }
 
 static bool smb358_start_charging(struct smb358_charger *smb358_chg)
@@ -1195,7 +1210,7 @@ static void smb358_irq_work(struct work_struct  *work)
 {
 	struct smb358_charger *smb358_chg = container_of(work, struct smb358_charger, irq_work);
 /**/
-	//smb358_irq_registers_read(smb358_chg);
+	smb358_irq_registers_read(smb358_chg);
 /**/
 	smb358_reschedule_update_work(smb358_chg);
 }
@@ -1208,6 +1223,34 @@ static void smb358_start_charging_work(struct work_struct *work)
 	//sjc0810
 	/*OVP or UVP when plug in charger*/
 	int charger_vol = get_charger_voltage();
+	int counts = 0;
+	
+	//sjc1023 begin
+	if (charger_vol > CHARGER_OVP_VOLTAGE || charger_vol < CHARGER_UVP_VOLTAGE) {
+		while (counts < CHARGER_VOLTAGE_READ_TIMES) {
+			msleep(100);
+			if (smb358_is_charger_in(smb358_chg)) {
+				charger_vol = get_charger_voltage();
+				if (charger_vol > CHARGER_OVP_VOLTAGE || charger_vol < CHARGER_UVP_VOLTAGE) {
+					counts++;
+					continue;
+				}
+				else
+					break;
+			}
+			else
+				break;
+		}
+	}
+	smb358_charger_voltage_set(smb358_chg, charger_vol);
+	if (charger_vol > CHARGER_OVP_VOLTAGE || charger_vol < CHARGER_UVP_VOLTAGE)
+		CHG_ERR("%s:charger_vol=%d\n", __func__, charger_vol);
+	if (smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__DCP || smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__NON_DCP)
+		power_supply_changed(smb358_chg->power_supplies.mains);
+	else if (smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__SDP)
+		power_supply_changed(smb358_chg->power_supplies.usb);
+	//sjc1023 end
+	
 	smb358_charger_status_set(smb358_chg, CHARGER_STATUS__GOOD);//suppose that the status is good before plug in OVP/UVP charger
 	if (charger_vol > CHARGER_OVP_VOLTAGE) {
 		in_ovp_status = true;
@@ -1358,8 +1401,28 @@ static void smb358_power_supply_data_read(struct smb358_charger *smb358_chg)
 static bool smb358_charger_ovp_check(struct smb358_charger *smb358_chg)
 {
 	static int count = 0;
-	int chg_vol = smb358_charger_voltage_get(smb358_chg) ;
-	if (chg_vol > CHARGER_OVP_VOLTAGE){
+	int times = 0;
+	int chg_vol = smb358_charger_voltage_get(smb358_chg);
+	
+	if (chg_vol > CHARGER_OVP_VOLTAGE) {//sjc1023
+		while (times < CHARGER_VOLTAGE_READ_TIMES) {
+			msleep(100);
+			if (smb358_is_charger_in(the_smb358_charger)) {
+				chg_vol = get_charger_voltage();
+				if (chg_vol > CHARGER_OVP_VOLTAGE) {
+					times++;
+					continue;
+				}
+				else
+					break;
+			}
+			else
+				break;
+		}
+		smb358_charger_voltage_set(smb358_chg, chg_vol);//update data
+	}
+	
+	if (chg_vol > CHARGER_OVP_VOLTAGE) {
 		//count++;
 		if (!in_ovp_status) {
 			ovp_counts++;//sjc0806
@@ -1386,7 +1449,27 @@ static bool smb358_charger_ovp_check(struct smb358_charger *smb358_chg)
 static bool smb358_charger_uvp_check(struct smb358_charger *smb358_chg)
 {
 	static int count = 0;
-	int chg_vol = smb358_charger_voltage_get(smb358_chg) ;
+	int times = 0;
+	int chg_vol = smb358_charger_voltage_get(smb358_chg);
+
+	if (chg_vol < CHARGER_UVP_VOLTAGE) {//sjc1023
+		while (times < CHARGER_VOLTAGE_READ_TIMES) {
+			msleep(100);
+			if (smb358_is_charger_in(the_smb358_charger)) {
+				chg_vol = get_charger_voltage();
+				if (chg_vol < CHARGER_UVP_VOLTAGE) {
+					times++;
+					continue;
+				}
+				else
+					break;
+			}
+			else
+				break;
+		}
+		smb358_charger_voltage_set(smb358_chg, chg_vol);//update data
+	}
+
 	if (chg_vol < CHARGER_UVP_VOLTAGE) {
 		//count++;
 		if (!in_uvp_status) {
@@ -1486,9 +1569,11 @@ static void smb358_charger_voltage_handle(struct smb358_charger *smb358_chg)
 
 static void smb358_battery_missing_check(struct smb358_charger *smb358_chg)
 {
-	//static int count = 0;
-	int bat_vol = 0;
+	static int count = 0;
+	static int count_in_charger = 0;
+	int bat_vol = -1;
 	int i = 0;
+	int j = 0;
 	/*
 	int bat_vol = smb358_battery_voltage_get(smb358_chg);
 	if (bat_vol < BAT_MISSING_VOLTAGE)
@@ -1504,6 +1589,7 @@ static void smb358_battery_missing_check(struct smb358_charger *smb358_chg)
 	}
 	*/
 	if (get_pcb_version() >= PCB_VERSION_EVT3_N1F) {//for EVT3 and later...
+#if 0//sjc1019 to avoid the IC bug(sometime it cannot be read in a short time)
 		if (batt_fuelgauge && batt_fuelgauge->get_battery_mvolts)
 			bat_vol = batt_fuelgauge->get_battery_mvolts();
 		if (bat_vol == -1 || get_battery_voltage_from_adc() < BAT_MISSING_VOLTAGE) {
@@ -1525,7 +1611,81 @@ static void smb358_battery_missing_check(struct smb358_charger *smb358_chg)
 		}
 		else
 			smb358_battery_missing_status_set(smb358_chg, BATTERY_MISSING_STATUS__GOOD);
-	} else {
+//#else
+		if (batt_fuelgauge && batt_fuelgauge->get_battery_mvolts)
+			bat_vol = batt_fuelgauge->get_battery_mvolts();
+		if (bat_vol == -1 || get_battery_voltage_from_adc() < BAT_MISSING_VOLTAGE) {
+			count++;
+			CHG_ERR("===%s:battery missing maybe take place[%d]===\n", __func__, count);
+		} else {
+			count = 0;
+			smb358_battery_missing_status_set(smb358_chg, BATTERY_MISSING_STATUS__GOOD);
+		}
+		if (count >= BAT_MISSING_CHECK_COUNT) {
+			smb358_battery_missing_status_set(smb358_chg, BATTERY_MISSING_STATUS__MISSED);
+			CHG_ERR("===%s:count=%d[%d], battery voltage=%d===\n", __func__, count, BAT_MISSING_CHECK_COUNT, bat_vol);
+			count = 0;
+		}
+#endif
+		/* sjc1024 begin
+		** if charger is in Vadc=Vcharger, we only use batt_fuelgauge to detect
+		** if charger is not in Vadc=Vbattery, we use batt_fuelgauge and ADC to detect
+		**/
+		if (smb358_is_charger_in(smb358_chg) && batt_fuelgauge && batt_fuelgauge->get_battery_mvolts) {
+			if (batt_fuelgauge->get_battery_mvolts() == -1) {
+				for (i = 1; i < BAT_MISSING_CHECK_COUNT; i++) {
+					msleep(200);
+					if (smb358_is_charger_in(smb358_chg) && batt_fuelgauge && batt_fuelgauge->get_battery_mvolts) {
+						if (batt_fuelgauge->get_battery_mvolts() == -1) {
+							count_in_charger++;
+							if (count_in_charger > 10)
+								count_in_charger = 10;
+							continue;
+						} else {//battery is good
+							count_in_charger = 0;
+							count = 0;
+							break;
+						}
+					}
+				}
+			} else {//battery is good
+				count_in_charger = 0;
+				count = 0;
+			}
+		} else {//charger not in
+			if ((bat_vol = get_battery_voltage()) < BAT_MISSING_VOLTAGE) {
+				for (j = 1; j < BAT_MISSING_CHECK_COUNT; j++) {
+					msleep(200);
+					if (!smb358_is_charger_in(smb358_chg)) {
+						if ((bat_vol = get_battery_voltage()) < BAT_MISSING_VOLTAGE) {
+							count++;
+							if (count > 10)
+								count = 10;
+							continue;
+						} else {//battery is good
+							count = 0;
+							count_in_charger = 0;
+							break;
+						}
+					}
+				}
+			} else {//battery is good
+				count = 0;
+				count_in_charger = 0;
+			}
+		}
+		
+		if (count_in_charger > BAT_MISSING_CHECK_COUNT || count > BAT_MISSING_CHECK_COUNT) {
+			smb358_battery_missing_status_set(smb358_chg, BATTERY_MISSING_STATUS__MISSED);
+			CHG_ERR("===%s:count=[%d], count_in_charger=[%d], battery voltage=%d===\n", __func__, count, count_in_charger, bat_vol);
+		} else if ((count_in_charger >= 1 && count >= 2) || (count >= 1 && count_in_charger >= 2)) {
+			smb358_battery_missing_status_set(smb358_chg, BATTERY_MISSING_STATUS__MISSED);
+			CHG_ERR("===%s:count=[%d], count_in_charger=[%d], battery voltage=%d===\n", __func__, count, count_in_charger, bat_vol);
+		} else {
+			smb358_battery_missing_status_set(smb358_chg, BATTERY_MISSING_STATUS__GOOD);
+		}
+		//sjc1024end
+	} else {//for EVT1 and EVT2
 		bat_vol = get_battery_voltage();
 		if (bat_vol < BAT_MISSING_VOLTAGE) {
 			for (i = 1; i <= BAT_MISSING_CHECK_COUNT; i++) {
@@ -1870,6 +2030,8 @@ static void smb358_battery_temperature_handle(struct smb358_charger *smb358_chg)
 	bool ret = true;
 	smb358_battery_temperature_region bat_temp_region_pre = smb358_battery_temperature_region_get(smb358_chg);
 	smb358_battery_temperature_region bat_temp_region_now = BATTERY_TEMP_REGION__INVALID;
+	if (BATTERY_MISSING_STATUS__MISSED == smb358_battery_missing_status_get(smb358_chg))//sjc1104
+		return;
 	smb358_battery_temperature_check(smb358_chg);	
 	bat_temp_region_now = smb358_battery_temperature_region_get(smb358_chg);
 	CHG_DBG("%s:temp region pre=%s, temp region now=%s\n",
@@ -1888,7 +2050,8 @@ static void smb358_battery_temperature_handle(struct smb358_charger *smb358_chg)
 		case BATTERY_TEMP_REGION__COOL:
 		case BATTERY_TEMP_REGION__NORMAL:
 		case BATTERY_TEMP_REGION__WARM:
-			ret = smb358_start_charging(smb358_chg);
+			if (smb358_charger_status_get(smb358_chg) != CHARGER_STATUS__UVP && smb358_charger_status_get(smb358_chg) != CHARGER_STATUS__OVP)//sjc1104
+				ret = smb358_start_charging(smb358_chg);
 			break;
 		default:
 			break;
@@ -3086,12 +3249,10 @@ static void smb358_battery_temperature_region_set(struct smb358_charger *smb358_
 		return;
 	}
 	pre_chg_type = smb358_charger_type_get(the_smb358_charger);
+	if (pre_chg_type == chg_type)//sjc1104
+		return;
 	smb358_charger_type_set(the_smb358_charger, chg_type);
-	if (chg_type == CHARGER_TYPE__DCP || chg_type == CHARGER_TYPE__NON_DCP)//sjc0823
-		power_supply_changed(the_smb358_charger->power_supplies.mains);
-	else if (chg_type == CHARGER_TYPE__SDP)
-		power_supply_changed(the_smb358_charger->power_supplies.usb);
-	else if (chg_type == CHARGER_TYPE__INVALID) {
+	if (chg_type == CHARGER_TYPE__INVALID) {
 		if (pre_chg_type == CHARGER_TYPE__DCP || pre_chg_type == CHARGER_TYPE__NON_DCP)
 			power_supply_changed(the_smb358_charger->power_supplies.mains);
 		else if (pre_chg_type == CHARGER_TYPE__SDP)
@@ -3129,7 +3290,7 @@ static void smb358_battery_temperature_region_set(struct smb358_charger *smb358_
 		uvp_counts = 0;
 		in_ovp_status = false;
 		in_uvp_status = false;
-		queue_delayed_work(the_smb358_charger->work_queue, &the_smb358_charger->start_charging_work, msecs_to_jiffies(START_CHG_DELAY));
+		queue_delayed_work(the_smb358_charger->work_queue, &the_smb358_charger->start_charging_work, 0);//msecs_to_jiffies(START_CHG_DELAY));//sjc1023
 	}
 }
 
@@ -3283,6 +3444,7 @@ static void smb358_power_supply_data_init(struct smb358_charger *smb358_chg)
 	//smb358_max_chg_timeout_flag_set(smb358_chg, false);
 	smb358_aicl_status_set(smb358_chg, false);//sjc0824
 	smb358_charging_current_aicl_status_set(smb358_chg, false);//sjc1003
+	smb358_otg_status_set(smb358_chg, false);//sjc1023
 
 	smb358_cold_to_little_cold_critical_temperature_set(smb358_chg, BAT_TEMP__TEN_BELOW_ZERO);
 	smb358_little_cold_to_cool_critical_temperature_set(smb358_chg, BAT_TEMP__ZERO);
@@ -3569,7 +3731,7 @@ static irqreturn_t smb358_irq( int irq, void *dev_id )
 	if(the_smb358_charger != NULL) {
 		CHG_DBG("%s, SMB358 Charging chip IRQ coming\n", __func__);
 		//CHG_ERR("\n========%s: smb358 Charging chip IRQ coming========\n\n",__func__);
-		smb358_irq_registers_read(the_smb358_charger);
+		//smb358_irq_registers_read(the_smb358_charger);
 		queue_work(the_smb358_charger->work_queue, &the_smb358_charger->irq_work);
 	}else{
 	       CHG_ERR("%s: the_smb358_charger is NULL\n",__func__);
@@ -3595,8 +3757,8 @@ static void smb358_irq_init(struct smb358_charger *smb358_chg)
 	smb358_chg->irq = gpio_to_irq(smb358_chg->charger_platform_data.irq_gpio);
 	//CHG_ERR("%s: smb358_chg->irq=%d\n", __func__, smb358_chg->irq);
 		
-	ret = request_threaded_irq(smb358_chg->irq, NULL,
-				   smb358_irq,
+	ret = request_threaded_irq(smb358_chg->irq, smb358_irq,
+				   NULL,
 				   IRQF_DISABLED | IRQF_TRIGGER_FALLING,
 				   smb358_chg->client->name, smb358_chg);
 
@@ -4854,6 +5016,8 @@ static int __devexit smb358_remove(struct i2c_client *client)
 {
 	struct smb358_charger *smb358_chg = i2c_get_clientdata(client);
 
+	if (smb358_otg_status_get(smb358_chg))//sjc1023
+		smb358_otg_disable(smb358_chg);
 	flush_delayed_work(&smb358_chg->start_charging_work);
 	flush_work(&smb358_chg->irq_work);
 	flush_delayed_work(&smb358_chg->update_work);

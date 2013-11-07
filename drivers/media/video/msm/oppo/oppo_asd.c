@@ -273,10 +273,10 @@ void m9mo_scene_detect(struct msm_sensor_ctrl_t *s_ctrl, struct frame_info_t *fr
             count_change_cnt++;
 
 
-            if(averBr_10frame == 0 && cur_ae_gain >= 200&&cur_exp_time>=1200) {
+            if(averBr_10frame == 0 && cur_ae_gain >= 230/*200*/&&cur_exp_time>=1400/*1200*/) {
                 scene_night = 1;
                 oppo_asd_debug("####scene is night at br==0\n");
-            } else if(averBr_10frame < scene_para.night_max_br&& cur_ae_gain >= 220) {
+            } else if(averBr_10frame < scene_para.night_max_br&& cur_ae_gain >= 250/*220*/) {
                 if(averWB_10frame < scene_para.night_max_wb/* && (cur_time > 18 && cur_time < 7)*/) {
                     scene_night = 1;
                     oppo_asd_debug("####scene is night when night\n");
@@ -302,8 +302,8 @@ void m9mo_scene_detect(struct msm_sensor_ctrl_t *s_ctrl, struct frame_info_t *fr
            
             }
 
-            if(averWB_10frame > 5000 && averBr_10frame > 700/*450*/&&cur_ae_gain< 10
-				&&cur_exp_time<=200&&af_position == 3) {
+            if(averWB_10frame > 5000 && averBr_10frame > 1000/*700*/&&cur_ae_gain< 10
+				&&cur_exp_time<=100/*200*/&&af_position == 3) {
                 oppo_asd_debug("####scene is landscape low br\n");
                 scene_landscape = 1;
             }
@@ -380,7 +380,7 @@ int32_t oppo_scene_detect_init(struct oppo_interface *interface)
     scene_para.outdoor_min_br = 700/*500*//*2200*/;
     scene_para.outdoor_min_wb = 5200/*4800*/;    
     scene_para.night_max_wb = 5000;
-    scene_para.night_max_br = 50/*100*/;
+    scene_para.night_max_br = 30/*50*/;
     scene_para.mix_max_wb = 4100/*4500*/;
     scene_para.mix_min_wb = 3300/*3200*/;
 	asd_i =  interface;

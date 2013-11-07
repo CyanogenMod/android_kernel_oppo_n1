@@ -35,23 +35,31 @@
 struct pmic8xxx_pwrkey {
 	struct input_dev *pwr;
 	int key_press_irq;
+/*OPPO yuyi 2013-10-11 delete begin for detecting power_key when phone power on */
+#if 0
 	int key_release_irq;
 	bool press;
+#endif
+/*OPPO yuyi 2013-10-11 delete end for detecting power_key when phone power on */
 	const struct pm8xxx_pwrkey_platform_data *pdata;
 };
 
 static irqreturn_t pwrkey_press_irq(int irq, void *_pwrkey)
 {
 	struct pmic8xxx_pwrkey *pwrkey = _pwrkey;
-
+/*OPPO yuyi 2013-10-11 delete begin for detecting power_key when phone power on */
+#if 0
 	if (pwrkey->press == true) {
 		pwrkey->press = false;
 		return IRQ_HANDLED;
 	} else {
 		pwrkey->press = true;
 	}
-
+#endif
+/*OPPO yuyi 2013-10-11 delete end for detecting power_key when phone power on */
+	printk("yuyi,pwrkey_press_irq  begin\n");
 	input_report_key(pwrkey->pwr, KEY_POWER, 1);
+	printk("yuyi,pwrkey_press_irq  end\n");
 	input_sync(pwrkey->pwr);
 
 	return IRQ_HANDLED;
@@ -60,7 +68,8 @@ static irqreturn_t pwrkey_press_irq(int irq, void *_pwrkey)
 static irqreturn_t pwrkey_release_irq(int irq, void *_pwrkey)
 {
 	struct pmic8xxx_pwrkey *pwrkey = _pwrkey;
-
+/*OPPO yuyi 2013-10-11 delete begin for detecting power_key when phone power on */
+#if 0
 	if (pwrkey->press == false) {
 		input_report_key(pwrkey->pwr, KEY_POWER, 1);
 		input_sync(pwrkey->pwr);
@@ -68,8 +77,11 @@ static irqreturn_t pwrkey_release_irq(int irq, void *_pwrkey)
 	} else {
 		pwrkey->press = false;
 	}
-
+#endif
+/*OPPO yuyi 2013-10-11 delete end for detecting power_key when phone power on */
+    printk("yuyi,pwrkey_release_irq b begin\n");
 	input_report_key(pwrkey->pwr, KEY_POWER, 0);
+	printk("yuyi,pwrkey_release_irq b end\n");
 	input_sync(pwrkey->pwr);
 
 	return IRQ_HANDLED;
@@ -82,7 +94,11 @@ static int pmic8xxx_pwrkey_suspend(struct device *dev)
 
 	if (device_may_wakeup(dev)) {
 		enable_irq_wake(pwrkey->key_press_irq);
+/*OPPO yuyi 2013-10-11 delete begin for detecting power_key when phone power on */
+#if 0
 		enable_irq_wake(pwrkey->key_release_irq);
+#endif
+/*OPPO yuyi 2013-10-11 delete end for detecting power_key when phone power on */
 	}
 
 	return 0;
@@ -94,7 +110,11 @@ static int pmic8xxx_pwrkey_resume(struct device *dev)
 
 	if (device_may_wakeup(dev)) {
 		disable_irq_wake(pwrkey->key_press_irq);
+/*OPPO yuyi 2013-10-11 delete begin for detecting power_key when phone power on */
+#if 0
 		disable_irq_wake(pwrkey->key_release_irq);
+#endif
+/*OPPO yuyi 2013-10-11 delete end for detecting power_key when phone power on */
 	}
 
 	return 0;
@@ -176,11 +196,17 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	}
 
 	pwrkey->key_press_irq = key_press_irq;
+/*OPPO yuyi 2013-10-11 delete begin for detecting power_key when phone power on */
+#if 0
 	pwrkey->key_release_irq = key_release_irq;
+#endif
+/*OPPO yuyi 2013-10-11 delete end for detecting power_key when phone power on */
 	pwrkey->pwr = pwr;
 
 	platform_set_drvdata(pdev, pwrkey);
 
+/*OPPO yuyi 2013-10-11 delete begin for detecting power_key when phone power on */
+#if 0
 	/* check power key status during boot */
 	err = pm8xxx_read_irq_stat(pdev->dev.parent, key_press_irq);
 	if (err < 0) {
@@ -193,6 +219,8 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 		input_report_key(pwrkey->pwr, KEY_POWER, 1);
 		input_sync(pwrkey->pwr);
 	}
+#endif
+/*OPPO yuyi 2013-10-11 delete end for detecting power_key when phone power on */
 
 	err = request_any_context_irq(key_press_irq, pwrkey_press_irq,
 		IRQF_TRIGGER_RISING, "pmic8xxx_pwrkey_press", pwrkey);
@@ -255,13 +283,18 @@ static struct platform_driver pmic8xxx_pwrkey_driver = {
 	},
 };
 
+/*OPPO yuyi 2013-10-11 modify begin for detecting power_key when phone power on */
+#if 1
 static int __devinit pmic8xxx_pwrkey_init(void)
 {
 	return platform_driver_register(&pmic8xxx_pwrkey_driver);
 }
 
 subsys_initcall(pmic8xxx_pwrkey_init);
-
+#else
+module_platform_driver(pmic8xxx_pwrkey_driver);
+#endif
+/*OPPO yuyi 2013-10-11 modify end for detecting power_key when phone power on */
 MODULE_ALIAS("platform:pmic8xxx_pwrkey");
 MODULE_DESCRIPTION("PMIC8XXX Power Key driver");
 MODULE_LICENSE("GPL v2");

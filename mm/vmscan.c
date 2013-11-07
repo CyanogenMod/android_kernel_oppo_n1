@@ -2399,6 +2399,12 @@ static bool sleeping_prematurely(pg_data_t *pgdat, int order, long remaining,
 		return !all_zones_ok;
 }
 
+#ifdef CONFIG_MACH_OPPO
+/* OPPO 2013-10-22 huanggd Add begin for IOWAIT high */
+extern long congestion_wait_kswapd(int sync, long timeout);
+/* OPPO 2013-10-22 huanggd Add end */
+#endif //CONFIG_MACH_OPPO
+
 /*
  * For kswapd, balance_pgdat() will work across all this node's zones until
  * they are all at high_wmark_pages(zone).
@@ -2629,7 +2635,13 @@ loop_again:
 			if (has_under_min_watermark_zone)
 				count_vm_event(KSWAPD_SKIP_CONGESTION_WAIT);
 			else
+		/* OPPO 2013-10-22 huanggd Modify begin for IOWAIT high */
+		#ifndef CONFIG_MACH_OPPO
 				congestion_wait(BLK_RW_ASYNC, HZ/10);
+		#else
+				congestion_wait_kswapd(BLK_RW_ASYNC, HZ/10);
+		#endif //CONFIG_MACH_OPPO
+		/* OPPO 2013-10-22 huanggd Modify end */
 		}
 
 		/*

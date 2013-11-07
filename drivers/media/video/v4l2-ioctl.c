@@ -507,6 +507,11 @@ static long __video_do_ioctl(struct file *file,
 	long ret_prio = 0;
 	long ret = -ENOTTY;
 
+	/* OPPO 2013-10-21 liubin Add for debug for kernel restart */
+	if (fh == NULL)
+		printk("%s: fh is NULL \r\n", __func__);
+	/* OPPO 2013-10-21 liubin Add end */
+	
 	if (ops == NULL) {
 		printk(KERN_WARNING "videodev: \"%s\" has no ioctl_ops.\n",
 				vfd->name);

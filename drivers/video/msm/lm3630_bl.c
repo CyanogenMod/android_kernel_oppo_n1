@@ -20,26 +20,22 @@
 #include <mach/vreg.h>
 #include <linux/err.h>
 #include <linux/i2c/lm3630_bl.h>
+#include <linux/boot_mode.h>
+
+
 
 #define CONFIG_VENDOR_EDIT
 
 #define LM3630_DRV_NAME "lm3630"
 #define LM3630_I2C_READ
 #define LM3630_ENABLE_GPIO   86
-
-extern int get_boot_mode(void);
-enum
-{
-    MSM_BOOT_MODE__NORMAL,
-    MSM_BOOT_MODE__FASTBOOT,
-    MSM_BOOT_MODE__RECOVERY,
-    MSM_BOOT_MODE__FACTORY,
-    MSM_BOOT_MODE__RF,
-    MSM_BOOT_MODE__WLAN,
-    MSM_BOOT_MODE__CHARGE,
-};
+#define LM3630_PWM_ON       0x19
+#define LM3630_PWM_TEST     0x1d
+#define LM3630_PWM_OFF      0x18
 
 static bool sleep_mode = true;
+static bool backlight_pwm_state_change = false;
+
 
 static struct i2c_client *lm3630_client;
 
@@ -161,14 +157,19 @@ static int lm3630_i2c_write(unsigned char   raddr, unsigned char  rdata)
 int set_backlight_pwm(int state)
 {
     int rc = 0;
+
     if(state == 1)
     {
-        rc = lm3630_i2c_write(0x01, 0x19);
+        if(lm3630_bkl_readout()>20)
+        {
+            rc = lm3630_i2c_write(0x01, LM3630_PWM_ON);
+        }
     }
     else
     {
-        rc = lm3630_i2c_write(0x01, 0x18);
+        rc = lm3630_i2c_write(0x01, LM3630_PWM_OFF);
     }
+
     return rc;
 }
 #endif
@@ -204,6 +205,23 @@ int lm3630_bkl_control(unsigned char bkl_level)
     rc = lm3630_i2c_write(0x03, bkl_level);
     pr_debug("%s: Neal lm3630_client set bkl level = %d, read level after write = %d ,rc = %d\n", __func__,(int)bkl_level,lm3630_bkl_readout(),rc);
 
+    /* OPPO 2013-10-28 gousj Add begin for pwm flicker */
+#ifdef CONFIG_VENDOR_EDIT
+    if(bkl_level <= 0x14)
+    {
+        rc = lm3630_i2c_write(0x01, LM3630_PWM_OFF);
+        backlight_pwm_state_change = true;
+        goto mark_back;
+    }
+    if(backlight_pwm_state_change == true)
+    {
+        rc = lm3630_i2c_write(0x01, LM3630_PWM_ON);
+        backlight_pwm_state_change = false;
+    }
+#endif //CONFIG_VENDOR_EDIT
+    /* OPPO 2013-10-28 gousj Add end */
+
+mark_back:
     return rc;
 }
 
@@ -218,6 +236,17 @@ int lm3630_bkl_readout(void)
 #endif
     return rc;
 }
+
+int lm3630_pwm_readout(void)
+{
+    int rc = 0;
+    unsigned char bkl_level = 0;
+    rc = lm3630_i2c_read(0x01,&bkl_level);
+    rc = bkl_level;
+    pr_debug("%s Neal pwm read out = %d\n",__func__,(int)rc);
+    return rc;
+}
+
 
 static int lm3630_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
@@ -257,8 +286,15 @@ static int lm3630_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 
     rc = lm3630_i2c_write(0x00, 0x1f);
     rc = lm3630_i2c_write(0x50, 0x03);
-    rc = lm3630_i2c_write(0x01, 0x18);
-    rc = lm3630_i2c_write(0x02, 0x78);
+    if(get_boot_mode() == MSM_BOOT_MODE__NORMAL)
+    {
+        rc = lm3630_i2c_write(0x01, LM3630_PWM_ON);
+    }
+    else
+    {
+        rc = lm3630_i2c_write(0x01, LM3630_PWM_OFF);
+    }
+    rc = lm3630_i2c_write(0x02, 0x38);
     rc = lm3630_i2c_write(0x03, 0xff);
     rc = lm3630_i2c_write(0x05, 0x14);
     rc = lm3630_i2c_write(0x06, 0x14);
@@ -309,14 +345,14 @@ static int lm3630_resume(struct i2c_client *client)
 
     mdelay(10);
     rc = lm3630_i2c_write(0x50, 0x03);
-    rc = lm3630_i2c_write(0x01, 0x18);
-/* OPPO 2013-10-04 gousj Modify begin for Radio Frequency Interference */
+    rc = lm3630_i2c_write(0x01, LM3630_PWM_OFF);
+    /* OPPO 2013-10-04 gousj Modify begin for Radio Frequency Interference and over voltage */
 #ifndef CONFIG_VENDOR_EDIT
     rc = lm3630_i2c_write(0x02, 0x79);
 #else
-	rc = lm3630_i2c_write(0x02, 0x78);
+    rc = lm3630_i2c_write(0x02, 0x38);
 #endif
-/* OPPO 2013-10-04 gousj Modify end */
+    /* OPPO 2013-10-04 gousj Modify end */
     rc = lm3630_i2c_write(0x05, 0x14);
     rc = lm3630_i2c_write(0x06, 0x14);
     rc = lm3630_i2c_write(0x07, 0x00);

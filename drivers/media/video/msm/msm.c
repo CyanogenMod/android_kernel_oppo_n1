@@ -422,7 +422,11 @@ static int msm_camera_v4l2_streamon(struct file *f, void *pctx,
 	/* if HW streaming on is successful, start buffer streaming */
 	rc = vb2_streamon(&pcam_inst->vid_bufq, buf_type);
 	D("%s, videobuf_streamon returns %d\n", __func__, rc);
-
+	//lanhe add for debug
+    if(rc < 0)
+    {
+       printk("%s, videobuf_streamon returns %d\n", __func__, rc);
+    }
 	/* turn HW (VFE/sensor) streaming */
 	pcam_inst->streamon = 1;
 	rc = msm_server_streamon(pcam, pcam_inst->my_index);

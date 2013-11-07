@@ -680,6 +680,12 @@ static void msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
 	struct msm_camera_sensor_info *sinfo =
 		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
+
+	/* OPPO 2013-10-26 liubin Add for release repeatly cause kernel reboot start */
+	if (s_ctrl->sensor_state == MSM_SENSOR_POWER_DOWN)
+		return;
+	/* OPPO 2013-10-26 liubin Add end */
+	
 	mutex_lock(&p_mctl->lock);
 	if (p_mctl->opencnt) {
 		v4l2_subdev_call(p_mctl->sensor_sdev, core, ioctl,

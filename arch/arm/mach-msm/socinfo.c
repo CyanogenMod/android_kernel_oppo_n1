@@ -388,7 +388,7 @@ char *socinfo_get_hw_rf_version(void)
 		rf_version = "N1T";
 	}else if((get_pcb_version() >= PCB_VERSION_EVT_N1F) &&(get_pcb_version() <= PCB_VERSION_PVT_N1F)){
 		rf_version = "N1";
-	};
+	}
 
 	return rf_version;
 }

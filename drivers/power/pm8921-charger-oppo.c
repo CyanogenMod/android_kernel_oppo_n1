@@ -3941,10 +3941,18 @@ static irqreturn_t usbin_valid_irq_handler(int irq, void *data)
 	schedule_work(&the_chip->cancel_charge_det);
 #endif
 /*OPPO,Jiangsm add end*/
+/* OPPO 2013-11-06 sjc Modify begin for delay a exact time */
+#ifndef CONFIG_VENDOR_EDIT
 	if (usb_target_ma)
 		schedule_delayed_work(&the_chip->vin_collapse_check_work,
 				      round_jiffies_relative(msecs_to_jiffies
 						(VIN_MIN_COLLAPSE_CHECK_MS)));
+#else
+	if (usb_target_ma)
+		schedule_delayed_work(&the_chip->vin_collapse_check_work,
+				      msecs_to_jiffies(VIN_MIN_COLLAPSE_CHECK_MS));
+#endif
+/* OPPO 2013-11-06 sjc Modify end */
 	else
 	    handle_usb_insertion_removal(data);
 	return IRQ_HANDLED;

@@ -86,11 +86,19 @@ enum m9mo_focus_state last_status = FOCUSING;
 
 typedef enum
 {
-	M9MO_AE_MODE_AUTO,
-	M9MO_AE_MODE_TOUCH,
-	M9MO_AE_MODE_FACE,
-	M9MO_AE_MODE_MAX
-}m9mo_ae_mode;
+	M9MO_ACTION_INIT,
+	M9MO_ACTION_START,
+	M9MO_ACTION_STOP,
+	M9MO_ACTION_MAX
+}m9mo_action_state;
+
+struct m9mo_action_struct{
+	m9mo_action_state state;
+	void (*init)(struct msm_sensor_ctrl_t *s_ctrl);
+	void (*start)(struct msm_sensor_ctrl_t *s_ctrl);
+	void (*output)(struct msm_sensor_ctrl_t *s_ctrl);
+	void (*stop)(struct msm_sensor_ctrl_t *s_ctrl);
+};
 
 /*struct of gpio key for camera rotate*/
 struct gpio_button_data {

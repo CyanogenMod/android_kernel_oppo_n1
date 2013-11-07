@@ -1838,6 +1838,14 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 				VIDIOC_MSM_SENSOR_CFG, &cfgarg);
 
 		}
+		
+		if (p_mctl && p_mctl->vfe_output_mode == VFE_OUTPUTS_MAIN_AND_THUMB)
+		{
+			if (NOTIFY_VFE_MSG_OUT == notification)
+			{
+				printk("%s: capture stream output \r\n", __func__);
+			}
+		}
 		/* OPPO 2013-07-29 lanhe Add end */
 
 		break;

@@ -3608,8 +3608,7 @@ static int msmfb_overlay_set(struct fb_info *info, void __user *p)
 
 	ret = mdp4_overlay_set(info, &req);
 	if (ret) {
-		printk(KERN_ERR "%s: ioctl failed, rc=%d\n",
-			__func__, ret);
+		//printk(KERN_ERR "%s: ioctl failed, rc=%d\n",__func__, ret);
 		return ret;
 	}
 
@@ -4127,8 +4126,7 @@ static int msmfb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 	if (buf_sync->flags & MDP_BUF_SYNC_FLAG_WAIT) {
 		msm_fb_wait_for_fence(mfd);
 	}
-	if ((mfd->panel.type == WRITEBACK_PANEL) ||
-		(mfd->panel.type == MIPI_CMD_PANEL))
+	if (mfd->panel.type == WRITEBACK_PANEL) 
 		threshold = 1;
 	else
 		threshold = 2;

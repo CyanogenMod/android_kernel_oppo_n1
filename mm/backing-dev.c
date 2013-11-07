@@ -834,6 +834,23 @@ long congestion_wait(int sync, long timeout)
 }
 EXPORT_SYMBOL(congestion_wait);
 
+#ifdef CONFIG_MACH_OPPO
+/* OPPO 2013-10-22 huanggd Add begin for IOWAIT high */
+long congestion_wait_kswapd(int sync, long timeout)
+{
+	long ret;
+	DEFINE_WAIT(wait);
+	wait_queue_head_t *wqh = &congestion_wqh[sync];
+
+	prepare_to_wait(wqh, &wait, TASK_UNINTERRUPTIBLE);
+	ret = schedule_timeout(timeout);
+	finish_wait(wqh, &wait);
+
+	return ret;
+}
+/* OPPO 2013-10-22 huanggd Add end */
+#endif //CONFIG_MACH_OPPO
+
 /**
  * wait_iff_congested - Conditionally wait for a backing_dev to become uncongested or a zone to complete writes
  * @zone: A zone to check if it is heavily congested

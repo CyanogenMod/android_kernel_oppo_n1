@@ -63,6 +63,9 @@ static struct regulator *ldol23;
 static struct regulator *lvs5;
 extern int get_pcb_version(void);
 /* OPPO 2012-07-20 liuhd Add end */
+/*OPPO yuyi 2013-10-24 add begin for I2C lock */
+extern struct mutex i2c_bus_mutex;  
+/*OPPO yuyi 2013-10-24 add end for I2C lock*/
 struct pn544_dev	
 {
 	wait_queue_head_t	read_wq;
@@ -147,7 +150,13 @@ static ssize_t pn544_dev_read(struct file *filp, char __user *buf, size_t count,
 	}
 
 	/* Read data */
+	/*OPPO yuyi 2013-10-24 add begin for I2C lock*/
+	mutex_lock(&i2c_bus_mutex);
+	/*OPPO yuyi 2013-10-24 add begin for I2C lock*/
 	ret = i2c_master_recv(pn544_dev->client, tmp, count);
+	/*OPPO yuyi 2013-10-24 add begin for I2C lock*/
+	mutex_unlock(&i2c_bus_mutex);
+	/*OPPO yuyi 2013-10-24 add begin for I2C lock*/
 	mutex_unlock(&pn544_dev->read_mutex);
 
 	/* pn544 seems to be slow in handling I2C read requests
@@ -211,7 +220,13 @@ static ssize_t pn544_dev_write(struct file *filp, const char __user *buf, size_t
 /* OPPO 2012-08-13 liuhd Delete end */
 	
 	/* Write data */
+	/*OPPO yuyi 2013-10-24 add begin for I2C lock*/
+	mutex_lock(&i2c_bus_mutex);
+	/*OPPO yuyi 2013-10-24 add begin for I2C lock*/
 	ret = i2c_master_send(pn544_dev->client, tmp, count);
+	/*OPPO yuyi 2013-10-24 add begin for I2C lock*/
+	mutex_unlock(&i2c_bus_mutex);
+	/*OPPO yuyi 2013-10-24 add begin for I2C lock*/
 	if (ret != count) 
 	{
 		pr_err("%s : i2c_master_send returned %d\n", __func__, ret);

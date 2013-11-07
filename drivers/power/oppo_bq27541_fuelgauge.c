@@ -184,6 +184,11 @@ struct bq27541_device_info {
 	unsigned long rtc_resume_time;
 	unsigned long rtc_suspend_time;
 	struct rtc_device *rtc;
+	int temp_pre;//sjc1024
+	int soh_pre;
+	int fcc_pre;
+	unsigned int batt_cur_pre;
+	atomic_t suspended;
 };
 static struct bq27541_device_info *bq27541_info;
 #if 0 //sjc
@@ -342,6 +347,11 @@ static int bq27541_get_ichg_current(void)
 	//s16 batt_cur;
 	int i;
 
+	if (atomic_read(&bq27541_info->suspended) == 1) {//sjc1024
+		pr_info("%s:sus, use fulegague pre current=[%d]\n", __func__, bq27541_info->batt_cur_pre);
+		return bq27541_info->batt_cur_pre;
+	}
+
 	for(i = 0; i < 3; i++)
 	{
 		ret = i2c_smbus_read_i2c_block_data(bq27541_info->client,BQ27541_REG_AI,0x02,buffer);
@@ -350,6 +360,7 @@ static int bq27541_get_ichg_current(void)
 			batt_cur = ((unsigned int)(batt_cur + buffer[0]) & 0x0000FFFF);
 			//batt_cur = ((batt_cur + buffer[0]) & 0x0000FFFF); 
 			gague_debug("%s:ichg current is =%dmA\n",__func__,batt_cur);
+			bq27541_info->batt_cur_pre = batt_cur;//sjc1024
 			return batt_cur ;
 		}
 	}
@@ -394,6 +405,11 @@ int bq27541_get_battery_temperature(void)
 	int temp;
 	int i;
 	
+	if (atomic_read(&bq27541_info->suspended) == 1) {//sjc1024
+		pr_info("%s:sus, use fulegague pre temperature=[%d]\n", __func__, bq27541_info->temp_pre);
+		return bq27541_info->temp_pre;
+	}
+	
 	for(i = 0; i < 3; i++)
 	{
 		ret = i2c_smbus_read_i2c_block_data(bq27541_info->client,BQ27541_REG_TEMP,0x02,buffer);
@@ -402,6 +418,7 @@ int bq27541_get_battery_temperature(void)
 			batt_tp = ((unsigned int)(batt_tp + buffer[0]) & 0x0000FFFF);
 			temp = (batt_tp + ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN);
 			gague_debug("%s:temperature value =%d C\n",__func__,temp);
+			bq27541_info->temp_pre = temp;//sjc1024
 			return temp;
 		}
 	}
@@ -422,6 +439,11 @@ static int bq27541_get_battery_voltage(void)
 	unsigned int vbatt_mv;
 	int i;
 
+	if (atomic_read(&bq27541_info->suspended) == 1) {//sjc1024
+		pr_info("%s:sus, use fulegague pre voltage=[%d]\n", __func__, bq27541_info->vbatt_mvolts);
+		return bq27541_info->vbatt_mvolts;
+	}
+	
 	for(i = 0; i < 3; i++)
 	{
 		ret = i2c_smbus_read_i2c_block_data(bq27541_info->client,BQ27541_REG_VOLT,0x02,buffer);
@@ -780,6 +802,11 @@ static int bq27541_get_battery_capacity(void)
     /*dump fulegague capactiy 120s every time*/
 	log_counter = log_counter%DEBUG_LOG_TIME;
 	
+	if (atomic_read(&bq27541_info->suspended) == 1) {//sjc1024
+		pr_info("%s:sus, use fulegague pre capacity=[%d%%]\n", __func__, bq27541_info->batt_capacity_pre);
+		return bq27541_info->batt_capacity_pre;
+	}
+
 	for(i = 0; i < 3; i++)
 	{
 		ret = i2c_smbus_read_i2c_block_data(bq27541_info->client,BQ27541_REG_SOC,0x02,buffer);
@@ -1145,10 +1172,17 @@ static int bq27541_get_battery_soh(void)
 	int ret = 0;
 	int soh = 0;
 
+	if (atomic_read(&bq27541_info->suspended) == 1) {//sjc1024
+		pr_info("%s:sus, use fulegague pre soh=[%d]\n", __func__, bq27541_info->soh_pre);
+		return bq27541_info->soh_pre;
+	}
+
 	for (i = 0; i < 3; i++) {
 		ret = bq27541_read(BQ27541_REG_SOH, &soh, 0, bq27541_info);
-		if (ret == 0)
+		if (ret == 0) {
+			bq27541_info->soh_pre = soh;//sjc1024
 			return soh;
+		}
 	}
 	
 	dev_err(bq27541_info->dev, "%s:reading SOH error, ret=%d\n", __func__, ret);
@@ -1166,10 +1200,17 @@ static int bq27541_get_battery_fcc(void)
 	int ret = 0;
 	int fcc = 0;
 
+	if (atomic_read(&bq27541_info->suspended) == 1) {//sjc1024
+		pr_info("%s:sus, use fulegague pre fcc=[%d]\n", __func__, bq27541_info->fcc_pre);
+		return bq27541_info->fcc_pre;
+	}
+
 	for (i = 0; i < 3; i++) {
 		ret = bq27541_read(BQ27541_REG_FCC, &fcc, 0, bq27541_info);
-		if (ret == 0)
+		if (ret == 0) {
+			bq27541_info->fcc_pre = fcc;//sjc1024
 			return fcc;
+		}
 	}
 
 	dev_err(bq27541_info->dev, "%s:reading FCC error, ret=%d\n", __func__, ret);
@@ -1194,6 +1235,7 @@ static int get_battery_soh_fuelgague(void)
 	
 	return batt_soh;
 }
+
 /**
  * sjc 2013-08-26 add for New Demand
  * return battery fcc or error(-1)
@@ -1280,6 +1322,12 @@ static int bq27541_battery_probe(struct i2c_client *client,
 
 	smb358_battery_fuelgauge_register(&bq27541_batt_fuelgauge);
 
+	bq27541_info->temp_pre = BATTERY_DEFAULT_TEMP;//sjc1024
+	bq27541_info->soh_pre = 100;
+	bq27541_info->fcc_pre = 0;
+	bq27541_info->batt_cur_pre = 0;
+	atomic_set(&bq27541_info->suspended, 0);
+
 	pr_info("%s:update vchg mvolts boot stegs\n",__func__);	
 	//sjc smb346_vchg_mvolts_update();
 	//pr_info("====%s:sjc test oppo_battery_fuelgauge inferface begin====\n\n",__func__);
@@ -1347,6 +1395,7 @@ static int bq27541_battery_i2c_suspend(struct i2c_client *client, pm_message_t m
 	int ret=0;
 	struct rtc_time     rtc_suspend_rtc_time;
 	
+	atomic_set(&bq27541_info->suspended, 1);//sjc1024
 	msmrtc_alarm_read_time(&rtc_suspend_rtc_time);
 	if (ret < 0) {
 		pr_err("%s: Failed to read RTC time\n", __func__);
@@ -1368,6 +1417,7 @@ static int bq27541_battery_i2c_resume(struct i2c_client *client)
 		
 	//sjc pr_info("enter:bq27541_resume\n");
 	
+	atomic_set(&bq27541_info->suspended, 0);//sjc1024
 	msmrtc_alarm_read_time(&rtc_resume_rtc_time);
 	if (ret < 0) {
 		pr_err("%s: Failed to read RTC time\n", __func__);

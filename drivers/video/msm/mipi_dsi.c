@@ -43,7 +43,7 @@ u32 esc_byte_ratio;
 static boolean tlmm_settings = FALSE;
 
 /*OPPO 2013-10-10 zhzhyon Add for reason*/
-#define PANEL_SRE
+//#define PANEL_SRE
 #ifdef PANEL_SRE
 struct mutex sre_mutex;
 #endif

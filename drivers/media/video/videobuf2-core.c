@@ -783,13 +783,27 @@ void vb2_buffer_done(struct vb2_buffer *vb, enum vb2_buffer_state state)
 {
 	struct vb2_queue *q = vb->vb2_queue;
 	unsigned long flags;
-
+    #if 0 //lanhe modify for debug
 	if (vb->state != VB2_BUF_STATE_ACTIVE)
 		return;
 
 	if (state != VB2_BUF_STATE_DONE && state != VB2_BUF_STATE_ERROR)
 		return;
+    #else
+	if (vb->state != VB2_BUF_STATE_ACTIVE)
+	{
+	    printk("1:Done processing on buffer %d, state: %d\n",
+			vb->v4l2_buf.index, vb->state);
+		return;
+	}
 
+	if (state != VB2_BUF_STATE_DONE && state != VB2_BUF_STATE_ERROR)
+	{
+	     printk("2:Done processing on buffer %d, state: %d\n",
+			vb->v4l2_buf.index, vb->state);
+		return;
+	}
+	#endif
 	dprintk(4, "Done processing on buffer %d, state: %d\n",
 			vb->v4l2_buf.index, vb->state);
 

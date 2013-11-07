@@ -27,6 +27,14 @@ typedef enum
 	FORCE_CAF_STOP,
 }m9mo_caf_result;
 
+typedef enum
+{
+	M9MO_AE_MODE_AUTO,
+	M9MO_AE_MODE_TOUCH,
+	M9MO_AE_MODE_FACE,
+	M9MO_AE_MODE_MAX
+}m9mo_ae_mode;
+
 struct frame_info_t
 {
 	int16_t brightness;
@@ -43,6 +51,8 @@ struct frame_info_t
 	bool focus_done;
 	m9mo_caf_result caf_result;
 	bool start_moving;
+	bool has_faces;
+	m9mo_ae_mode ae_mode;
 };
 
 #define WDV_CAF_LOW_THR 				(2300)
