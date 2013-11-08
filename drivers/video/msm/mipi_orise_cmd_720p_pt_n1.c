@@ -96,7 +96,7 @@ static int __init mipi_cmd_orise_720p_pt_init(void)
 	//pinfo.mipi.traffic_mode = DSI_BURST_MODE;
 	//pinfo.mipi.traffic_mode = DSI_NON_BURST_SYNCH_EVENT;
 	//pinfo.mipi.dsi_pclk_rate = ;
-	//pinfo.mipi.frame_rate = 60;
+	pinfo.mipi.frame_rate = 61;
 	pinfo.mipi.te_sel = 1; /* TE from vsync gpio */
 	pinfo.mipi.interleave_max = 1;
 	pinfo.mipi.insert_dcs_cmd = TRUE;
