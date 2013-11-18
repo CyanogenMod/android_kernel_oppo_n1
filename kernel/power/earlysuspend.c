@@ -45,10 +45,6 @@ enum {
 };
 static int state;
 
-/* OPPO 2013-10-28 zhenwx Add begin for print wake loke info */
-extern void wakelock_printk_control(int on); 
-/* OPPO 2013-10-28 zhenwx Add  end */
-
 void register_early_suspend(struct early_suspend *handler)
 {
 	struct list_head *pos;
@@ -106,13 +102,11 @@ static void early_suspend(struct work_struct *work)
 			pos->suspend(pos);
 		}
 	}
+	set_debug_lock_timer(1, msecs_to_jiffies(5000));
 
 	mutex_unlock(&early_suspend_lock);
 
 	suspend_sys_sync_queue();
-/* OPPO 2013-10-28 zhenwx Add begin for print wake loke info */
-	wakelock_printk_control(1); 
-/* OPPO 2013-10-28 zhenwx Add  end */ 
 abort:
 	spin_lock_irqsave(&state_lock, irqflags);
 	if (state == SUSPEND_REQUESTED_AND_SUSPENDED)
@@ -125,10 +119,6 @@ static void late_resume(struct work_struct *work)
 	struct early_suspend *pos;
 	unsigned long irqflags;
 	int abort = 0;
-	
-/* OPPO 2013-10-28 zhenwx Add begin for print wake loke info */
-	wakelock_printk_control(0); 	
-/* OPPO 2013-10-28 zhenwx Add  end */
 
 	mutex_lock(&early_suspend_lock);
 	spin_lock_irqsave(&state_lock, irqflags);
@@ -138,6 +128,8 @@ static void late_resume(struct work_struct *work)
 	else
 		abort = 1;
 	spin_unlock_irqrestore(&state_lock, irqflags);
+
+	set_debug_lock_timer(0, 0);
 
 	if (abort) {
 		if (debug_mask & DEBUG_SUSPEND)
