@@ -11,8 +11,6 @@
  *
  */
 
-#define DEBUG
-
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
@@ -119,9 +117,6 @@ static struct msm_otg *the_msm_otg;
 static bool debug_aca_enabled;
 static bool debug_bus_voting_enabled;
 static bool mhl_det_in_progress;
-/*added by songxh for engineermode test otg begain*/
-//static bool otg_enable = false;
-/*added by songxh for engineermode test otg end*/
 static struct regulator *hsusb_3p3;
 static struct regulator *hsusb_1p8;
 static struct regulator *hsusb_vddcx;
@@ -2490,12 +2485,12 @@ static void msm_otg_sm_work(struct work_struct *w)
 			pr_debug("b_sess_vld\n");
 			switch (motg->chg_state) {
 			case USB_CHG_STATE_UNDEFINED:
+#ifdef CONFIG_MACH_N1
 				/* OPPO 2013-10-30 sjc Modify begin for N1 USB receptacle problem, delay 300ms */
-				if (get_pcb_version() < PCB_VERSION_EVT_N1)
-					msm_chg_detect_work(&motg->chg_work.work);
-				else
-					queue_delayed_work(system_nrt_wq, &motg->chg_work, msecs_to_jiffies(300));
-				/* OPPO 2013-10-30 sjc Modify end */
+				queue_delayed_work(system_nrt_wq, &motg->chg_work, msecs_to_jiffies(300));
+#else
+				msm_chg_detect_work(&motg->chg_work.work);
+#endif
 				break;
 			case USB_CHG_STATE_DETECTED:
 				switch (motg->chg_type) {
@@ -3419,43 +3414,6 @@ const struct file_operations msm_otg_state_fops = {
 	.release = single_release,
 };
 
-/*****************added by songxh for engineermode test otg begain**********************/
-/*
-static struct kobject *otg_engineermode_state_kobj;
-
-static ssize_t msm_otg_engineermode_state_show(struct kobject *kobj, struct kobj_attribute *attr,
-			     char *buf)
-{    
-	printk("-- songxh OTG --%s, otg_enable=%d\n",__FUNCTION__, otg_enable);
-	return sprintf(buf, "%d\n", otg_enable);
-}
-
-static ssize_t msm_otg_engineermode_state_store(struct kobject *kobj, struct kobj_attribute *attr,
-			 const char *buf, size_t count){
-	char *after;
-	unsigned long status = simple_strtoul(buf, &after, 10);
-	otg_enable = (bool)status;
-	printk("-- songxh OTG --%s, otg_enable=%d\n",__FUNCTION__, otg_enable);
-	return count;
-}
-
-struct kobj_attribute otg_engineermode_state_attr = {
-    .attr = {"otg_engineermode_state", 0660},   
-    .show = &msm_otg_engineermode_state_show,
-    .store = &msm_otg_engineermode_state_store,
-};
-
-static struct attribute * otg_engineermode_attr[] = {
-	&otg_engineermode_state_attr.attr,	
-	NULL,
-};
-
-static struct attribute_group otg_engineermode_state_attr_group = {
-	.attrs = otg_engineermode_attr,
-};*/
-
-/*****************added by songxh for engineermode test otg end**********************/
-
 static int msm_otg_show_chg_type(struct seq_file *s, void *unused)
 {
 	struct msm_otg *motg = s->private;
@@ -4121,7 +4079,7 @@ free_motg:
 	return ret;
 }
 
-static int  __exit  msm_otg_remove(struct platform_device *pdev)
+static int  __devexit msm_otg_remove(struct platform_device *pdev)
 {
 	struct msm_otg *motg = platform_get_drvdata(pdev);
 	struct usb_otg *otg = motg->phy.otg;
@@ -4206,6 +4164,7 @@ static int  __exit  msm_otg_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_MACH_OPPO
 /*****************added by songxh for shutdowm otg begain**********************/
 static void  msm_otg_shutdown(struct platform_device *pdev)
 {
@@ -4288,6 +4247,7 @@ static void  msm_otg_shutdown(struct platform_device *pdev)
 	return ;
 }
 /*****************added by songxh for shutdowm otg end**********************/
+#endif
 
 #ifdef CONFIG_PM_RUNTIME
 static int msm_otg_runtime_idle(struct device *dev)
@@ -4381,7 +4341,9 @@ static struct of_device_id msm_otg_dt_match[] = {
 
 static struct platform_driver msm_otg_driver = {
 	.remove = __devexit_p(msm_otg_remove),
+#ifdef CONFIG_MACH_OPPO
 	.shutdown = msm_otg_shutdown,
+#endif
 	.driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
@@ -4394,13 +4356,6 @@ static struct platform_driver msm_otg_driver = {
 
 static int __init msm_otg_init(void)
 {
-/*****************added by songxh for engineermode test otg begain**********************/
-/*	int rc = 0;
-	otg_engineermode_state_kobj = kobject_create_and_add("otg_engineermode_state", NULL);
-	printk("---songxh--- create otg_engineermode_state node!\n");
-	if (otg_engineermode_state_kobj)
-		rc = sysfs_create_group(otg_engineermode_state_kobj, &otg_engineermode_state_attr_group);*/
-/*****************added by songxh for engineermode test otg end**********************/
 	return platform_driver_probe(&msm_otg_driver, msm_otg_probe);
 }
 
