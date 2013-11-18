@@ -144,11 +144,11 @@ static struct tabla_mbhc_config mbhc_cfg = {
 	.gpio_level_insert = 1,
 #endif
 	.detect_extn_cable = false,
-	/*OPPO 2013-10-23 zhzhyon Add for MICBIAS DC*/
 #ifdef CONFIG_MACH_OPPO
+	/*OPPO 2013-10-23 zhzhyon Add for MICBIAS DC*/
 	.micbias_always_on = false
-#endif
 	/*OPPO 2013-10-23 zhzhyon Add end*/
+#endif
 };
 
 static struct mutex cdc_mclk_mutex;
@@ -1369,16 +1369,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 #ifdef CONFIG_MACH_OPPO
 	apq8064_hs_detect_use_gpio = 1;
-
 	/*OPPO 2013-10-23 zhzhyon Add for MICBIAS DC*/
-	if(get_pcb_version() >= PCB_VERSION_EVT_N1)
-	{
-		mbhc_cfg.micbias_always_on = true;
-	}
+	mbhc_cfg.micbias_always_on = true;
 	/*OPPO 2013-10-23 zhzhyon Add end*/
 #endif
-	if (apq8064_hs_detect_use_gpio == 1) 
-	{
+	if (apq8064_hs_detect_use_gpio == 1) {
 		pr_debug("%s: Using MBHC mechanical switch\n", __func__);
 		mbhc_cfg.gpio = JACK_DETECT_GPIO;
 		mbhc_cfg.gpio_irq = gpio_to_irq(JACK_DETECT_GPIO);
