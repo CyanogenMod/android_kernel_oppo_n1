@@ -2598,7 +2598,7 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 
 	if (req->src_rect.h > (req->dst_rect.h * 8)) {	/* too little */
 		mdp4_stat.err_scale++;
-		//pr_err("%s: scale down, too little (h)!\n", __func__);
+		pr_err("%s: scale down, too little (h)!\n", __func__);
 		return -ERANGE;
 	}
 
@@ -2610,7 +2610,7 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 
 	if (req->src_rect.w > (req->dst_rect.w * 8)) {	/* too little */
 		mdp4_stat.err_scale++;
-		//pr_err("%s: scale down, too little (w)!\n", __func__);
+		pr_err("%s: scale down, too little (w)!\n", __func__);
 		return -ERANGE;
 	}
 
@@ -3549,7 +3549,7 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 
 	if (ret < 0) {
 		mutex_unlock(&mfd->dma->ov_mutex);
-		//pr_err("%s: mdp4_overlay_req2pipe, ret=%d\n", __func__, ret);
+		pr_err("%s: mdp4_overlay_req2pipe, ret=%d\n", __func__, ret);
 		return ret;
 	}
 
