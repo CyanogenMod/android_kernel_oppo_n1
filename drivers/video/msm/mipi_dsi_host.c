@@ -112,8 +112,6 @@ void mipi_dsi_init(void)
 	mutex_init(&clk_mutex);
 	INIT_WORK(&mdp_reset_work, mdp_reset_wq_handler);
 
-	INIT_WORK(&mdp_reset_work, mdp_reset_wq_handler);
-
 	INIT_LIST_HEAD(&pre_kickoff_list);
 	INIT_LIST_HEAD(&post_kickoff_list);
 }
