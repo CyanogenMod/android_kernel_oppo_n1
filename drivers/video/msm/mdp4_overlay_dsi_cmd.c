@@ -415,17 +415,17 @@ int mdp4_dsi_cmd_pipe_commit(int cndx, int wait, u32 *release_busy)
 
 	mdp4_stat.overlay_commit[pipe->mixer_num]++;
 
-
-/* OPPO 2013-10-19 gousj Modify begin for use wait for  vsync insted of dmap */
 	if (wait) {
 		if (release_busy) {
 			msm_fb_release_busy(vctrl->mfd);
 			*release_busy = false;
 			mutex_unlock(&vctrl->mfd->dma->ov_mutex);
 		}
-		mdp4_dsi_cmd_wait4vsync(0);
-    }
-/* OPPO 2013-10-19 gousj Modify end */
+		if (pipe->ov_blt_addr)
+			mdp4_dsi_cmd_wait4ov(0);
+		else
+			mdp4_dsi_cmd_wait4dmap(0);
+	}
 
 	return cnt;
 }
@@ -478,7 +478,6 @@ void mdp4_dsi_cmd_vsync_ctrl(struct fb_info *info, int enable)
 	mutex_unlock(&vctrl->update_lock);
 }
 
-/* OPPO 2013-10-19 gousj Modify begin for rewirte wait for vsync  */
 void mdp4_dsi_cmd_wait4vsync(int cndx)
 {
 	struct vsycn_ctrl *vctrl;
@@ -500,7 +499,6 @@ void mdp4_dsi_cmd_wait4vsync(int cndx)
 
 	mdp4_stat.wait4vsync0++;
 }
-/* OPPO 2013-10-19 gousj Modify end */
 
 static void mdp4_dsi_cmd_wait4dmap(int cndx)
 {
@@ -540,6 +538,7 @@ static void mdp4_dsi_cmd_wait4ov(int cndx)
  * primary_rdptr_isr:
  * called from interrupt context
  */
+
 static void primary_rdptr_isr(int cndx)
 {
 	struct vsycn_ctrl *vctrl;
@@ -1260,7 +1259,7 @@ void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 	}
 
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
-	mdp4_dsi_cmd_pipe_commit(cndx, 0, NULL);
+	mdp4_dsi_cmd_pipe_commit(cndx, 1, NULL);
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
 
