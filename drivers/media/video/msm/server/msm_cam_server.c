@@ -1491,6 +1491,12 @@ static int msm_close_server(struct file *fp)
 	mutex_lock(&g_server_dev.server_lock);
 	if (g_server_dev.use_count > 0)
 		g_server_dev.use_count--;
+	/* OPPO 2013-11-15 liubin Add for avoid closing repeatly start */
+	else {
+		mutex_unlock(&g_server_dev.server_lock);
+		return 0;
+	}
+	/* OPPO 2013-11-15 liubin Add end */
 	mutex_unlock(&g_server_dev.server_lock);
 
 	if (g_server_dev.use_count == 0) {

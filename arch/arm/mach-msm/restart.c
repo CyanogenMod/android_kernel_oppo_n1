@@ -34,6 +34,12 @@
 #include <mach/scm.h>
 #include "msm_watchdog.h"
 #include "timer.h"
+/*OPPO 2013-11-15 zhenwx add begin for power off modem */
+#include <linux/gpio.h>
+
+#define MDM_DRV_AP2MDM_PMIC_PWR_EN_GPIO  27
+/*OPPO 2013-11-15 zhenwx add end */
+
 
 #define WDT0_RST	0x38
 #define WDT0_EN		0x40
@@ -136,6 +142,7 @@ void msm_set_restart_mode(int mode)
 }
 EXPORT_SYMBOL(msm_set_restart_mode);
 
+
 static void __msm_power_off(int lower_pshold)
 {
 	printk(KERN_CRIT "Powering off the SoC\n");
@@ -145,6 +152,10 @@ static void __msm_power_off(int lower_pshold)
 	pm8xxx_reset_pwr_off(0);
 
 	if (lower_pshold) {
+/*OPPO 2013-11-15 zhenwx add begin for power off modem */
+		gpio_direction_output(MDM_DRV_AP2MDM_PMIC_PWR_EN_GPIO, 0);
+		mdelay(500);
+/*OPPO 2013-11-15 zhenwx add end */
 		__raw_writel(0, PSHOLD_CTL_SU);
 		mdelay(10000);
 		printk(KERN_ERR "Powering off has failed\n");

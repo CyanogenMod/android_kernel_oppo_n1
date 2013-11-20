@@ -278,6 +278,29 @@ static void m9mo_set_mirror_flip(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	char sensor_reverse_h_v_cmd[8] = {0x08,0x02,0x02,0x05,0x01,0x01,0x01,0x01};
 	int gpio_value = 0;
+	char resp[5] = {0x05,0x01,0x02,0x05,0x04};
+	
+	if (m9mo_para.flip_hint)
+	{
+		/* get current flip setting */
+		msm_vendor_i2c_rxdata(s_ctrl->sensor_i2c_client,resp,5,5);
+		if (resp[2] == 0x01)
+		{
+			sensor_reverse_h_v_cmd[4] = 0x01;
+			sensor_reverse_h_v_cmd[5] = 0x00;
+			sensor_reverse_h_v_cmd[6] = 0x01;
+			sensor_reverse_h_v_cmd[7] = 0x00;
+		}
+		else
+		{
+			sensor_reverse_h_v_cmd[4] = 0x01;
+			sensor_reverse_h_v_cmd[5] = 0x01;
+			sensor_reverse_h_v_cmd[6] = 0x01;
+			sensor_reverse_h_v_cmd[7] = 0x01;
+		}
+		msm_camera_i2c_txdata(s_ctrl->sensor_i2c_client,sensor_reverse_h_v_cmd, 8);
+		return;
+	}
 	
 	/* sensor output reversely H/V */
 	gpio_value = gpio_get_value(rotate_gpio_num);
@@ -342,6 +365,14 @@ static void m9mo_check_if_at_focusing(struct msm_sensor_ctrl_t *s_ctrl, bool for
 			if (resp[1] != 0x00 && (resp[1]&0xF0) != 0xF0)
 			{
 				break;
+			}
+			if (poll_cnt > 40)
+			{
+				//force AF stop
+				E_cmd[2] = 0x0A;
+				E_cmd[3] = 0x02;
+				E_cmd[4] = 0x00;
+				msm_camera_i2c_txdata(s_ctrl->sensor_i2c_client,E_cmd,5);
 			}
 			msleep(50);
 		}
@@ -473,7 +504,8 @@ static void ZSL_capture(struct msm_sensor_ctrl_t *s_ctrl)
 		{
 			ZSL_YUV_output(s_ctrl);
 		}
-		return;
+		m9mo_output_send = false;
+		goto protect;
 	}
 	
 	capture_enable_out = false;
@@ -486,6 +518,7 @@ static void ZSL_capture(struct msm_sensor_ctrl_t *s_ctrl)
 	m9mo_para.need_update = true;
 	g_FrameInfo.capture_start = true;
 	g_FrameInfo.single_af = false;
+	camera_work = false;
 	m9mo_check_if_at_focusing(s_ctrl, false);
 	
 	//set capture yuv output
@@ -512,7 +545,8 @@ static void ZSL_capture(struct msm_sensor_ctrl_t *s_ctrl)
 	E_cmd[4] = 0x03;
 	msm_camera_i2c_txdata(s_ctrl->sensor_i2c_client,E_cmd,5);
 	m9mo_debug("%s E\n", __func__);
-	
+
+protect:
 	if (!flash_state)
 	{
 	    int timed_out = 500;
@@ -758,6 +792,7 @@ static void ZSL_HDR_capture(struct msm_sensor_ctrl_t *s_ctrl)
 	capture_notify = false;
 
 	m9mo_para.need_update = true;
+	camera_work = false;
 	//check if at focusing now
 	m9mo_check_if_at_focusing(s_ctrl, false);
 	
@@ -2429,6 +2464,9 @@ static void gpio_keys_gpio_work_func(struct work_struct *work)
 	
 	if(Rotate_delay)
 	    msleep(50);
+
+	if (m9mo_para.flip_hint)
+		m9mo_para.flip_hint = 0;
 	    
 	m9mo_debug("[%s]: Camera rotate inturrupt coming \r\n", __func__);
 	gpio_value = gpio_get_value(bdata->button->gpio);
@@ -2456,7 +2494,6 @@ static void gpio_keys_gpio_work_func(struct work_struct *work)
 		{
 		    if (m9mo_action[s_ctrl->curr_res].state == M9MO_ACTION_START)
 		    {
-		        camera_work = false;
 				Rotate_delay = false;
 				m9mo_change_to_param_set_mode(s_ctrl);
 				m9mo_action[s_ctrl->curr_res].start(s_ctrl);
@@ -2467,7 +2504,6 @@ static void gpio_keys_gpio_work_func(struct work_struct *work)
 			{
 				if (Rotate_delay)
 				{
-					camera_work = false;
 					Rotate_delay = false;
 					m9mo_change_to_param_set_mode(s_ctrl);
 					m9mo_action[s_ctrl->curr_res].start(s_ctrl);
@@ -2484,7 +2520,6 @@ static void gpio_keys_gpio_work_func(struct work_struct *work)
 		{
 		    if (m9mo_action[2].state == M9MO_ACTION_START)
 		    {
-		        camera_work = false;
 				Rotate_delay = false;
 		        m9mo_change_to_param_set_mode(s_ctrl);
 				m9mo_action[2].start(s_ctrl);
@@ -2495,7 +2530,6 @@ static void gpio_keys_gpio_work_func(struct work_struct *work)
 			{
 				if (Rotate_delay)
 				{
-					camera_work = false;
 					Rotate_delay = false;
 			        m9mo_change_to_param_set_mode(s_ctrl);
 					m9mo_action[2].start(s_ctrl);
@@ -2888,8 +2922,7 @@ static int __init m9mo_sensor_init_module(void)
 	int pcb_version = get_pcb_version();
 
 	m9mo_debug("%s : pcb_version[%d] \n", __func__, pcb_version);
-	if (pcb_version == PCB_VERSION_DVT_N1T ||
-		pcb_version == PCB_VERSION_PVT_N1T ||
+	if (pcb_version >= PCB_VERSION_DVT_N1T ||
 		pcb_version == PCB_VERSION_DVT_N1F ||
 		pcb_version == PCB_VERSION_PVT_N1F)
 	{
@@ -2981,6 +3014,7 @@ static void m9mo_change_to_param_set_mode(struct msm_sensor_ctrl_t *s_ctrl)
 
 	m9mo_para.need_update = true;
 	monitor_start = false;
+	camera_work = false;
 	
 	m9mo_check_if_at_focusing(s_ctrl, true);
 	
@@ -3187,6 +3221,7 @@ int32_t m9mo_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	m9mo_para.need_update = true;
 	camera_poweron = false;
 	ignore_irq = true;
+	m9mo_para.flip_hint = 0;
 	
 	m9mo_debug("%s\n", __func__);
 	disable_irq(s_ctrl->sensor_i2c_client->client->irq);
@@ -4089,6 +4124,29 @@ static int32_t m9mo_set_awb_lock(struct msm_sensor_ctrl_t *s_ctrl, int32_t value
 	return 0;
 }
 
+static int32_t m9mo_set_flip_hint(struct msm_sensor_ctrl_t *s_ctrl, int32_t value)
+{
+	if (!camera_work || !monitor_start)
+	{
+		return 0;
+	}
+	
+	m9mo_para.flip_hint = value;
+	
+	if (s_ctrl->curr_res != MSM_SENSOR_RES_FULL && 
+		s_ctrl->curr_res != MSM_SENSOR_INVALID_RES &&
+		m9mo_action[s_ctrl->curr_res].start &&
+		value != 0)
+	{
+		m9mo_debug("%s start \r\n", __func__);
+		m9mo_change_to_param_set_mode(s_ctrl);
+		m9mo_action[s_ctrl->curr_res].start(s_ctrl);
+	}
+	
+	return 0;
+}
+
+
 static int32_t m9mo_set_scene_mode(struct msm_sensor_ctrl_t *s_ctrl, int32_t scene_mode)
 {
 	char E_cmd[5] = {0x05,0x02,0x01,0x01,0x3B};
@@ -4215,6 +4273,7 @@ int32_t m9mo_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 {
 	struct sensor_cfg_data cdata;
 	long   rc = 0;
+	static int frame_cnt = 0;
 	
 	if (copy_from_user(&cdata,
 		(void *)argp,
@@ -4227,9 +4286,13 @@ int32_t m9mo_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			   	{
 					if((caf_workqueue) && (!g_bCapture))
 					{
-					   queue_work(caf_workqueue, &caf_work);
-					   if (!camera_work)
-					   	 camera_work = true;
+						queue_work(caf_workqueue, &caf_work);
+						if (!camera_work && frame_cnt++>5)
+						{
+							queue_work(m9mo_status_workqueue, &m9mo_status_work);
+							camera_work = true;
+							frame_cnt = 0;
+						}
 					}
 					else
 					{
@@ -4268,8 +4331,12 @@ int32_t m9mo_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			if((caf_workqueue) && (!g_bCapture))
 			{
 				queue_work(caf_workqueue, &caf_work);
-				if (!camera_work)
-			   	  camera_work = true;
+				if (!camera_work && frame_cnt++>5)
+			   	{
+			   	 	queue_work(m9mo_status_workqueue, &m9mo_status_work);
+				 	camera_work = true;
+				 	frame_cnt = 0;
+			   	}
 			}
 			else
 			{
@@ -4412,6 +4479,9 @@ int32_t m9mo_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			break;
 		case CFG_SET_AWB_LOCK:
 			rc = m9mo_set_awb_lock(s_ctrl, cdata.cfg.awb_lock);
+			break;
+		case CFG_SET_FLIP_HINT:
+			rc = m9mo_set_flip_hint(s_ctrl, cdata.cfg.flip_hint);
 			break;
 		/*OPPO 2013-09-14 guanjindian add for N1 asd start*/
 		case CFG_GET_SCENE_MODE:

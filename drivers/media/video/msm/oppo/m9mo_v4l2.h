@@ -149,6 +149,7 @@ struct parameter_config
 	int8_t awb_lock;
 	int8_t zoom;
 	int8_t scene;
+	int8_t flip_hint;
 	bool hdr_enable;
 	bool asd_enable;
 	bool need_update;

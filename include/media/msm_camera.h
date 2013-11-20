@@ -1059,7 +1059,8 @@ struct msm_snapshot_pp_status {
 #define CFG_SET_AWB_LOCK		  77
 #define CFG_SET_CAF_RESULT		  78
 #define CFG_GET_FLASH_INFO	  	  79
-#define CFG_MAX                   80
+#define CFG_SET_FLIP_HINT	  	  80
+#define CFG_MAX                   81
 #endif
 /* OPPO 2013-07-24 lanhe Add end */
 
@@ -1750,6 +1751,7 @@ struct sensor_cfg_data {
 		struct cord fd_cord;
 		int32_t ae_lock;
 		int32_t awb_lock;
+		int32_t flip_hint;
         /* OPPO 2013-07-24 lanhe Add end */
 		/*OPPO 2013-09-14 guanjindian add for N1 asd start*/
 		int sport_enable;

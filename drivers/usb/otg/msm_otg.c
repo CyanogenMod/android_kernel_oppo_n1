@@ -83,9 +83,9 @@
 
 #ifdef CONFIG_MACH_OPPO
 extern int pm8921_chg_connected(enum usb_chg_type chg_type);
-struct completion chg_detect_wait;
+/* OPPO 2012-08-08 chendx Add begin for reason */
+#define USB_NONSTANDARD_DET_DELAY	msecs_to_jiffies(2350)
 
-#define USB_NONSTANDARD_DET_DELAY	msecs_to_jiffies(1650)
 static int cancel_nonstandard_worker = 0;
 
 void cancel_nonstandard_worker_fn(char *fn_str)
@@ -2313,15 +2313,9 @@ static void nonstandard_detect_work(struct work_struct *w)
 
 	pr_info("%s,%d\n", __func__,cancel_nonstandard_worker);
 
-	if (false == is_nonstandard_worker_canceled()) {
-		if (!wait_for_completion_timeout(&chg_detect_wait,
-					msecs_to_jiffies(700))) {
-			pr_info("Timed out waiting for HDMI wait\n");
-			motg->chg_type = USB_NON_DCP_CHARGER;
-		} else {
-			pr_info("waiting for HDMI IRQ\n");
-			motg->chg_type = USB_HDMI_CHARGER;
-		}
+	if(false == is_nonstandard_worker_canceled()) 
+	{
+
 		/* OPPO 2013-10-30 sjc Add begin for DCP NON-DCP detect again */
 		line_status = readl_relaxed(USB_PORTSC);
 		//pr_info("===%s:line_status=%d===\n", __func__, line_status);
@@ -2329,10 +2323,11 @@ static void nonstandard_detect_work(struct work_struct *w)
 			pr_info("%s:DCP\n", __func__);
 			motg->chg_type = USB_DCP_CHARGER;
 		} else if ((line_status & PORTSC_LS) == PORTSC_LS_NON) {
-			pr_info("%s:NON-DCP\n", __func__);
-			motg->chg_type = USB_NON_DCP_CHARGER;
+			if (motg->chg_type != USB_SDP_CHARGER) {
+				pr_info("%s:NON-DCP\n", __func__);
+				motg->chg_type = USB_NON_DCP_CHARGER;
+			}
 		}
-		/* OPPO 2013-10-30 sjc Add end */
 
 		if (false == is_usb_dc_plugged_in()) {
 			motg->chg_type = USB_INVALID_CHARGER;
@@ -3992,10 +3987,6 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (ret)
 		dev_dbg(&pdev->dev, "mode debugfs file is"
 			"not available\n");
-
-#ifdef CONFIG_MACH_OPPO
-	init_completion(&chg_detect_wait);
-#endif
 
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
 		pm8921_charger_register_vbus_sn(&msm_otg_set_vbus_state);
