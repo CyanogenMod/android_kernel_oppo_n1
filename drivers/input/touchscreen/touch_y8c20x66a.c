@@ -32,6 +32,8 @@
 ** ranfei@OnlineRD.Driver.TouchSCreen   2013/10/15   1.3        修改睡眠唤醒时断电与上电的bug
 ** ranfei@OnlineRD.Driver.TouchSCreen   2013/10/28   1.4        在断电之后把中断处理给取消掉
 ** ranfei@OnlineRD.Driver.TouchSCreen   2013/10/28   1.5        在检测到大面积的时候压力上报0，减少误操作
+** ranfei@OnlineRD.Driver.TouchSCreen   2013/11/15   1.6        增加设备厂家信息
+** ranfei@OnlineRD.Driver.TouchSCreen   2013/11/19   1.7        modify the /proc/devinfo/back_tp version info
 ** ------------------------------------------------------------------------------
 ** 
 ************************************************************************************/
@@ -54,6 +56,7 @@
 #include <linux/syscalls.h>
 #include "touch_y8c20x66a_microchip.h"
 #include "Cypress.h"
+#include <mach/device_info.h>
 
 /*****************************************************************/
 
@@ -110,6 +113,7 @@ struct y8c20x66a_ts_data {
 	struct early_suspend early_suspend;
 	#ifdef CYPRESS_CHIP
 	uint8_t finger_data[6];
+    uint8_t version2str[6];
 	#endif
 	#ifdef MICROCHIP_CHIP
 	uint8_t finger_data[7];
@@ -118,7 +122,8 @@ struct y8c20x66a_ts_data {
     int reset_gpio;
 };
 
-DEFINE_MUTEX(i2c_bus_mutex);//for GSBI1_I2C err
+//DEFINE_MUTEX(i2c_bus_mutex);//for GSBI1_I2C err
+extern struct mutex i2c_bus_mutex;  //for GSBI1_I2C err
 
 static struct y8c20x66a_ts_data   *syna_ts_data;
 static DEFINE_SEMAPHORE(y8c20x66a_sem);
@@ -252,6 +257,7 @@ retry_block:
 			    goto retry_block;
 		    }
         }
+        g_cypress_ver = CYPRESS_FIRMWARE_VERSION;
         return 0;
     }
     ret = 0;
@@ -897,11 +903,14 @@ static int y8c20x66a_ts_probe(
     ts->input_dev->keybit[BIT_WORD(BTN_DIGI)] = BIT_MASK(BTN_TOUCH);
     
 	#ifdef CYPRESS_CHIP
+    sprintf(ts->version2str, "0x%03x", g_cypress_ver);
+    register_device_proc("back_tp", ts->version2str, "Cypress");
 	input_set_abs_params(ts->input_dev, ABS_X, 0, 330, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_Y, 0, 480, 0, 0);
     input_set_abs_params(ts->input_dev, ABS_PRESSURE, 0, 512, 0, 0);
 	#endif
 	#ifdef MICROCHIP_CHIP
+    register_device_proc("back_tp", "PIC16F", "Microchip");
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, 384, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, 320, 0, 0);
     input_set_abs_params(ts->input_dev, ABS_PRESSURE, 0, 512, 0, 0);

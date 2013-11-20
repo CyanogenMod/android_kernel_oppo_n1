@@ -2476,6 +2476,7 @@ static void smb358_charging_complete_handle(struct smb358_charger *smb358_chg)
 			smb358_charging_status_set(smb358_chg, CHARGING_STATUS__FULL);
 			smb358_charging_complete_request_set(smb358_chg, false);
 		}
+		smb358_stop_chg_timeout_timer(smb358_chg);//sjc1118
 		return;
 	}else
 		smb358_charging_complete_check(smb358_chg);

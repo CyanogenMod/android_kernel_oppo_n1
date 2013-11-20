@@ -125,6 +125,12 @@ int __init board_pcb_verson_init(char *s)
 		current_pcb_version_num = PCB_VERSION_DVT_N1T;
 	else if (!strcmp(s, "n1t_pvt"))
 		current_pcb_version_num = PCB_VERSION_PVT_N1T;
+	else if (!strcmp(s, "n1w_evt"))
+		current_pcb_version_num = PCB_VERSION_EVT_N1W;
+	else if (!strcmp(s, "n1w_dvt"))
+		current_pcb_version_num = PCB_VERSION_DVT_N1W;
+	else if (!strcmp(s, "n1w_pvt"))
+		current_pcb_version_num = PCB_VERSION_PVT_N1W;
 
 	return 0;
 }

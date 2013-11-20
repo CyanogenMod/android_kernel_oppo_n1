@@ -45,6 +45,12 @@
 #define VERSION "1.01"
 #define WCNSS_PIL_DEVICE "wcnss"
 
+/* OPPO 2013-11-15 liuhd Add begin for wifi bt version */
+#ifdef CONFIG_MACH_OPPO
+#include <mach/device_info.h>
+#endif //CONFIG_MACH_OPPO
+/* OPPO 2013-11-15 liuhd Add end */
+
 /* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
 
@@ -1509,10 +1515,25 @@ static struct miscdevice wcnss_misc = {
 	.fops = &wcnss_node_fops,
 };
 
+/* OPPO 2013-11-15 liuhd Add begin for wifi bt version */
+#ifdef CONFIG_MACH_OPPO
+struct manufacture_info wcn_info = {
+	.version = "wcn3660",
+	.manufacture = "Qualcomm",
+};
+#endif //CONFIG_MACH_OPPO
+/* OPPO 2013-11-15 liuhd Add end */
+
 static int __devinit
 wcnss_wlan_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+
+	/* OPPO 2013-11-15 liuhd Add begin for wifi bt version */
+	#ifdef CONFIG_MACH_OPPO
+	register_device_proc("wcn", wcn_info.version, wcn_info.manufacture);
+	#endif //CONFIG_MACH_OPPO
+	/* OPPO 2013-11-15 liuhd Add end */
 
 	/* verify we haven't been called more than once */
 	if (penv) {

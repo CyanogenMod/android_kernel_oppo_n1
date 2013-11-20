@@ -49,6 +49,11 @@
 #include <linux/syscalls.h>
 #include <linux/wakelock.h>
 #include <linux/pcb_version.h>   //add by yubin,oppo
+/* OPPO 2013-11-15 ranfei Add begin for 增加工程模式设备信息 */
+#ifdef CONFIG_VENDOR_EDIT
+#include <mach/device_info.h>
+#endif
+/* OPPO 2013-11-15 ranfei Add end */
 
 
 /******************* tp function switch **************************/
@@ -226,6 +231,11 @@ struct synaptics_ts_data {
 	uint8_t finger_data[((MAX_FINGERS+3)/4)+(MAX_FINGERS*5)+1];
 	uint16_t vendor_id;
 	uint8_t version[4];
+/* OPPO 2013-11-15 ranfei Add begin for 增加工程模式设备信息 */
+#ifdef CONFIG_VENDOR_EDIT
+    uint8_t str_version[9];
+#endif
+/* OPPO 2013-11-15 ranfei Add end */
 	uint16_t snap_left;
 	uint16_t snap_right;
 	uint16_t snap_top;
@@ -1003,7 +1013,12 @@ static int synaptics_scan_param(struct synaptics_ts_data *ts)
 		dev_err(&ts->client->dev, "%s: get customer id failed\n", __func__);
 		return -1;
 	}
-	//ts->version = (fn34_customer_id[2]<<8) | fn34_customer_id[3];
+/* OPPO 2013-11-15 ranfei Add begin for 增加工程模式设备信息 */
+#ifdef CONFIG_VENDOR_EDIT
+    sprintf(ts->str_version, "%02x%02x%02x%02x", ts->version[0], ts->version[1], ts->version[2], ts->version[3]); 
+#endif
+/* OPPO 2013-11-15 ranfei Add end */
+    //ts->version = (fn34_customer_id[2]<<8) | fn34_customer_id[3];
 
 	if (1)
 	{
@@ -2610,6 +2625,14 @@ firmware_update:
 
 	synaptics_ts_sysfs_init(ts->input_dev);
 	init_synaptics_proc(ts);
+
+/* OPPO 2013-11-15 ranfei Add begin for 增加工程模式设备信息 */
+#ifdef CONFIG_VENDOR_EDIT
+    register_device_proc("tp", ts->str_version, 
+                         (ts->vendor_id == 0) ? "TPK" :
+                         (ts->vendor_id == 1) ? "YFO" : "unkown");
+#endif
+/* OPPO 2013-11-15 ranfei Add end */
 
 	print_ts(TS_INFO, KERN_INFO "synaptics_ts_probe: Start touchscreen %s in %s mode\n", ts->input_dev->name, ts->use_irq ? "interrupt" : "polling");
 
