@@ -114,7 +114,7 @@
 #define MSM_ION_MFC_META_SIZE  0x40000 /* 256 Kbytes */
 #define MSM_CONTIG_MEM_SIZE  0x65000
 #ifdef CONFIG_MSM_IOMMU
-#define MSM_ION_MM_SIZE		0x3800000
+#define MSM_ION_MM_SIZE		0x4800000
 #define MSM_ION_SF_SIZE		0
 #define MSM_ION_QSECOM_SIZE	0x780000 /* (7.5MB) */
 #define MSM_ION_HEAP_NUM	8
@@ -898,9 +898,8 @@ static int phy_init_seq[] = {
 	-1
 };
 
-#define PMIC_GPIO_DP		27    /* PMIC GPIO for D+ change */
-#define PMIC_GPIO_DP_IRQ	PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PMIC_GPIO_DP)
 #define MSM_MPM_PIN_USB1_OTGSESSVLD	40
+#define MSM_MPM_XO_WAKEUP_INT  60
 
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
@@ -911,10 +910,12 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.bus_scale_table	= &usb_bus_scale_pdata,
 	.phy_init_seq		= phy_init_seq,
 	.mpm_otgsessvld_int	= MSM_MPM_PIN_USB1_OTGSESSVLD,
+	.mpm_xo_wakeup_int	= MSM_MPM_XO_WAKEUP_INT,
 };
 
 static struct msm_usb_host_platform_data msm_ehci_host_pdata3 = {
 	.power_budget = 500,
+	.mpm_xo_wakeup_int	= MSM_MPM_XO_WAKEUP_INT,
 };
 
 #ifdef CONFIG_USB_EHCI_MSM_HOST4
@@ -928,9 +929,6 @@ static void __init apq8064_ehci_host_init(void)
 		if (machine_is_apq8064_liquid())
 			msm_ehci_host_pdata3.dock_connect_irq =
 					PM8921_MPP_IRQ(PM8921_IRQ_BASE, 9);
-		else
-			msm_ehci_host_pdata3.pmic_gpio_dp_irq =
-							PMIC_GPIO_DP_IRQ;
 
 		apq8064_device_ehci_host3.dev.platform_data =
 				&msm_ehci_host_pdata3;
