@@ -285,6 +285,8 @@ void msm_restart(char mode, const char *cmd)
 		} else if (!strncmp(cmd, "android", 7)) {
 			__raw_writel(ANDROID_MODE, restart_reason);
 #endif
+		} else if (!strcmp(cmd, "rtc")) {
+			__raw_writel(0x77665503, restart_reason);
 		} else if (!strncmp(cmd, "oem-", 4)) {
 			unsigned long code;
 			code = simple_strtoul(cmd + 4, NULL, 16) & 0xff;
