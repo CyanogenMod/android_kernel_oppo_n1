@@ -1,0 +1,6 @@
+config MACH_X909
+	depends on ARCH_MSM8960
+	select MACH_OPPO
+	bool "Oppo X909"
+	help
+	  Support for Oppo X909 device
