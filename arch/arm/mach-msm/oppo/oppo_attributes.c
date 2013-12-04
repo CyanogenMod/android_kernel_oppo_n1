@@ -134,12 +134,22 @@ struct kobj_attribute pin_info_attr = {
 	.store = &pin_info_store
 };
 
-extern int get_modem_reset_num(void);
 static int modem_reset_count = 0;
+int get_modem_reset_count(void)
+{
+	return modem_reset_count;
+}
+EXPORT_SYMBOL(get_modem_reset_count);
+
+void set_modem_reset_count(int count)
+{
+	modem_reset_count = count;
+}
+EXPORT_SYMBOL(set_modem_reset_count);
+
 static ssize_t modem_reset_count_show(struct kobject *kobj, struct kobj_attribute *attr,
 		char *buf)
 {
-	modem_reset_count = get_modem_reset_num();
 	return sprintf(buf, "%d\n", modem_reset_count);
 }
 
@@ -148,7 +158,7 @@ static ssize_t modem_reset_count_store(struct kobject *kobj, struct kobj_attribu
 {
 	char *after;
 	unsigned long reset_count = simple_strtoul(buf, &after, 10);
-	modem_reset_count = (int)reset_count;
+	modem_reset_count = (int) reset_count;
 	return count;
 }
 
