@@ -22,15 +22,15 @@
 
 #include <mach/cpuidle.h>
 
-/*OPPO 2012-12-10 zhzhyon Add for headset detect*/
 #ifdef CONFIG_MACH_OPPO
 #include <linux/wakelock.h>
 #endif
-/*OPPO 2012-12-10 zhzhyon Add end*/
 
 
 #define BYTE_BIT_MASK(nr)		(1UL << ((nr) % BITS_PER_BYTE))
 #define BIT_BYTE(nr)			((nr) / BITS_PER_BYTE)
+
+#define WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS 100
 
 struct wcd9xxx_irq {
 	bool level;
@@ -113,11 +113,17 @@ bool wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx)
 {
 	enum wcd9xxx_pm_state os;
 
-	/* wcd9xxx_{lock/unlock}_sleep will be called by wcd9xxx_irq_thread
+	/*
+	 * wcd9xxx_{lock/unlock}_sleep will be called by wcd9xxx_irq_thread
 	 * and its subroutines only motly.
 	 * but btn0_lpress_fn is not wcd9xxx_irq_thread's subroutine and
-	 * it can race with wcd9xxx_irq_thread.
-	 * so need to embrace wlock_holders with mutex.
+	 * It can race with wcd9xxx_irq_thread.
+	 * So need to embrace wlock_holders with mutex.
+	 *
+	 * If system didn't resume, we can simply return false so codec driver's
+	 * IRQ handler can return without handling IRQ.
+	 * As interrupt line is still active, codec will have another IRQ to
+	 * retry shortly.
 	 */
 	mutex_lock(&wcd9xxx->pm_lock);
 	if (wcd9xxx->wlock_holders++ == 0) {
@@ -131,11 +137,11 @@ bool wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx)
 						WCD9XXX_PM_AWAKE)) ==
 						    WCD9XXX_PM_SLEEPABLE ||
 			 (os == WCD9XXX_PM_AWAKE)),
-			5 * HZ)) {
-		pr_err("%s: system didn't resume within 5000ms, state %d, "
-		       "wlock %d\n", __func__, wcd9xxx->pm_state,
-		       wcd9xxx->wlock_holders);
-		WARN_ON(1);
+			msecs_to_jiffies(WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS))) {
+		pr_warn("%s: system didn't resume within %dms, s %d, w %d\n",
+			__func__,
+			WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS, wcd9xxx->pm_state,
+			wcd9xxx->wlock_holders);
 		wcd9xxx_unlock_sleep(wcd9xxx);
 		return false;
 	}
@@ -148,8 +154,14 @@ void wcd9xxx_unlock_sleep(struct wcd9xxx *wcd9xxx)
 {
 	mutex_lock(&wcd9xxx->pm_lock);
 	if (--wcd9xxx->wlock_holders == 0) {
-		wcd9xxx->pm_state = WCD9XXX_PM_SLEEPABLE;
-		pr_debug("%s: releasing wake lock\n", __func__);
+		pr_debug("%s: releasing wake lock pm_state %d -> %d\n",
+			__func__, wcd9xxx->pm_state, WCD9XXX_PM_SLEEPABLE);
+		/*
+		 * if wcd9xxx_lock_sleep failed, pm_state would be still
+		 * WCD9XXX_PM_ASLEEP, don't overwrite
+		 */
+		if (likely(wcd9xxx->pm_state == WCD9XXX_PM_AWAKE))
+			wcd9xxx->pm_state = WCD9XXX_PM_SLEEPABLE;
 		pm_qos_update_request(&wcd9xxx->pm_qos_req,
 				PM_QOS_DEFAULT_VALUE);
 	}
@@ -190,7 +202,6 @@ static void wcd9xxx_irq_dispatch(struct wcd9xxx *wcd9xxx, int irqbit)
 	}
 }
 
-/*OPPO 2012-12-10 zhzhyon add for reason*/
 #ifdef CONFIG_MACH_OPPO
 static struct wake_lock wcd9xxx_wakelock;
 static irqreturn_t wcd9xxx_irq_handler(int irq, void *data)
@@ -201,7 +212,6 @@ static irqreturn_t wcd9xxx_irq_handler(int irq, void *data)
 	return IRQ_WAKE_THREAD;
 }
 #endif
-/*OPPO 2012-12-10 zhzhyon add end*/
 
 static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 {
@@ -212,14 +222,12 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 
 	if (unlikely(wcd9xxx_lock_sleep(wcd9xxx) == false)) {
 		dev_err(wcd9xxx->dev, "Failed to hold suspend\n");
-		/*OPPO 2012-12-10 zhzhyon Modify for reason*/
-		#ifndef CONFIG_MACH_OPPO
+#ifndef CONFIG_MACH_OPPO
 		return IRQ_NONE;
-		#else
+#else
 		ret = -1;
 		goto done;
-		#endif
-		/*OPPO 2012-12-10 zhzhyon Modify end*/
+#endif
 	}
 	ret = wcd9xxx_bulk_read(wcd9xxx, TABLA_A_INTR_STATUS0,
 			       WCD9XXX_NUM_IRQ_REGS, status);
@@ -227,14 +235,12 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 		dev_err(wcd9xxx->dev, "Failed to read interrupt status: %d\n",
 			ret);
 		wcd9xxx_unlock_sleep(wcd9xxx);
-		/*OPPO 2012-12-10 zhzhyon Modify for reason*/
-		#ifndef CONFIG_MACH_OPPO
+#ifndef CONFIG_MACH_OPPO
 		return IRQ_NONE;
-		#else
+#else
 		ret = -1;
 		goto done;
-		#endif
-		/*OPPO 2012-12-10 zhzhyon Modify end*/
+#endif
 	}
 	/* Apply masking */
 	for (i = 0; i < WCD9XXX_NUM_IRQ_REGS; i++)
@@ -261,15 +267,13 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 			wcd9xxx_irq_dispatch(wcd9xxx, i);
 	}
 	wcd9xxx_unlock_sleep(wcd9xxx);
-	/*OPPO 2012-12-10 zhzhyon Add for headset detect*/
-	#ifdef CONFIG_MACH_OPPO
+#ifdef CONFIG_MACH_OPPO
 done:
 	enable_irq(irq);
 	wake_unlock(&wcd9xxx_wakelock);
 	if(ret == -1)
 		return IRQ_NONE;
-	#endif
-	/*OPPO 2012-12-10 zhzhyon Add end*/
+#endif
 
 	return IRQ_HANDLED;
 }
@@ -333,18 +337,16 @@ int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx)
 			wcd9xxx->irq_masks_cur[i]);
 	}
 
-	/*OPPO 2012-12-10 zhzhyon Modify for mic key*/
-	#ifndef CONFIG_MACH_OPPO
+#ifndef CONFIG_MACH_OPPO
 	ret = request_threaded_irq(wcd9xxx->irq, NULL, wcd9xxx_irq_thread,
 				   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
 				   "wcd9xxx", wcd9xxx);
-	#else
+#else
 	wake_lock_init(&wcd9xxx_wakelock, WAKE_LOCK_SUSPEND,	"wcd9xxx_wakelock");
 	ret = request_threaded_irq(wcd9xxx->irq, wcd9xxx_irq_handler, wcd9xxx_irq_thread,
 				   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
 				   "wcd9xxx", wcd9xxx);
-	#endif
-	/*OPPO 2012-12-10 zhzhyon Modify end*/
+#endif
 	if (ret != 0)
 		dev_err(wcd9xxx->dev, "Failed to request IRQ %d: %d\n",
 			wcd9xxx->irq, ret);
@@ -364,9 +366,10 @@ int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx)
 			free_irq(wcd9xxx->irq, wcd9xxx);
 	}
 
-	if (ret)
+	if (ret) {
 		mutex_destroy(&wcd9xxx->irq_lock);
 		mutex_destroy(&wcd9xxx->nested_irq_lock);
+	}
 
 	return ret;
 }
