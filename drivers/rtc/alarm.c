@@ -24,9 +24,10 @@
 #include <linux/wakelock.h>
 
 #include <asm/mach/time.h>
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
+
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 #include <linux/slab.h>
-/* OPPO 2012-09-12 liujun Add end */
+#endif
 
 #define ANDROID_ALARM_PRINT_ERROR (1U << 0)
 #define ANDROID_ALARM_PRINT_INIT_STATUS (1U << 1)
@@ -47,18 +48,16 @@ module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 		} \
 	} while (0)
 
-/* OPPO 2012-09-12 liujun Modify begin for add power up alarm */
-#if 0
-#define ANDROID_ALARM_WAKEUP_MASK ( \
-	ANDROID_ALARM_RTC_WAKEUP_MASK | \
-	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK)
-#else
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 #define ANDROID_ALARM_WAKEUP_MASK ( \
 	ANDROID_ALARM_RTC_WAKEUP_MASK | \
 	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK | \
 	ANDROID_ALARM_RTC_POWERUP)
+#else
+#define ANDROID_ALARM_WAKEUP_MASK ( \
+	ANDROID_ALARM_RTC_WAKEUP_MASK | \
+	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK)
 #endif
-/* OPPO 2012-09-12 liujun Modify end */
 
 /* support old usespace code */
 #define ANDROID_ALARM_SET_OLD               _IOW('a', 2, time_t) /* set alarm */
@@ -73,8 +72,15 @@ struct alarm_queue {
 	ktime_t stopped_time;
 };
 
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
-// mwalker -->
+static struct rtc_device *alarm_rtc_dev;
+static DEFINE_SPINLOCK(alarm_slock);
+static DEFINE_MUTEX(alarm_setrtc_mutex);
+static struct wake_lock alarm_rtc_wake_lock;
+static struct platform_device *alarm_platform_dev;
+struct alarm_queue alarms[ANDROID_ALARM_TYPE_COUNT];
+static bool suspended;
+
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 enum RTC_CMD {
 	RTC_CMD_CLEAR = 0x61,
 	RTC_CMD_UPDATE,
@@ -93,22 +99,9 @@ struct rtc_alarm_work {
 	spinlock_t slock;
 	bool active;
 };
-// <--
 
-/* mwalker */
 #define DEBUG_PRINT_TIME
-/* OPPO 2012-09-12 liujun Add end */
 
-static struct rtc_device *alarm_rtc_dev;
-static DEFINE_SPINLOCK(alarm_slock);
-static DEFINE_MUTEX(alarm_setrtc_mutex);
-static struct wake_lock alarm_rtc_wake_lock;
-static struct platform_device *alarm_platform_dev;
-struct alarm_queue alarms[ANDROID_ALARM_TYPE_COUNT];
-static bool suspended;
-
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
-// mwalker
 static struct rtc_alarm_work rtc_work;
 static int rtc_alarm_update(struct timespec *alarm);
 static void rtc_alarm_clear(void);
@@ -169,24 +162,22 @@ static void rtc_task(struct work_struct *work)
 	mutex_unlock(&rwork->mutex);
 
 }
-/* OPPO 2012-09-12 liujun End begin for reason */
+#endif
 
 static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 {
 	struct alarm *alarm;
 
-/* OPPO 2012-09-12 liujun Modify begin for power up alarm */
-#if 0
-	bool is_wakeup = base == &alarms[ANDROID_ALARM_RTC_WAKEUP] ||
-			base == &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP];
-#else
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	unsigned long flags;
 	struct rtc_cmd *cmd;
 	bool is_wakeup = base == &alarms[ANDROID_ALARM_RTC_WAKEUP] ||
 			base == &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP] ||
 			base == &alarms[ANDROID_ALARM_RTC_POWERUP];
+#else
+	bool is_wakeup = base == &alarms[ANDROID_ALARM_RTC_WAKEUP] ||
+			base == &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP];
 #endif
-/* OPPO 2012-09-12 liujun Modify end */
 
 	if (base->stopped) {
 		pr_alarm(FLOW, "changed alarm while setting the wall time\n");
@@ -196,12 +187,8 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 	if (is_wakeup && !suspended && head_removed)
 		wake_unlock(&alarm_rtc_wake_lock);
 
-/* OPPO 2012-09-12 liujun Modify begin for power up alarm */
-#if 0
-	if (!base->first)
-		return;
-#else
 	if (!base->first) {
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 		/* There is no more alarm */
 		if (base == &alarms[ANDROID_ALARM_RTC_POWERUP]) {
 			spin_lock_irqsave(&rtc_work.slock, flags);
@@ -217,11 +204,9 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 				pr_alarm(FLOW, "alarm clear task is in queue\n");
 			}
 		}
-
+#endif
 		return;
 	}
-#endif
-/* OPPO 2012-09-12 liujun Modify end */
 
 	alarm = container_of(base->first, struct alarm, node);
 
@@ -239,8 +224,7 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 	base->timer._softexpires = ktime_add(base->delta, alarm->softexpires);
 	hrtimer_start_expires(&base->timer, HRTIMER_MODE_ABS);
 
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
-	/* mwalker, update new expires time in rtc alarm */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	if (alarm->type == ANDROID_ALARM_RTC_POWERUP) {
 		spin_lock_irqsave(&rtc_work.slock, flags);
 		cmd = (struct rtc_cmd*)kzalloc(sizeof(*cmd), GFP_ATOMIC);
@@ -256,7 +240,7 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 			pr_alarm(FLOW, "alarm update task is in queue\n");
 		}
 	}
-/* OPPO 2012-09-12 liujun Add end */
+#endif
 }
 
 static void alarm_enqueue_locked(struct alarm *alarm)
@@ -395,7 +379,7 @@ int alarm_cancel(struct alarm *alarm)
 	}
 }
 
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 #ifdef DEBUG_PRINT_TIME
 /**
  * print_rtc_time - print time in struct rtc_time as man readable
@@ -513,7 +497,7 @@ static void rtc_alarm_clear(void)
 
 	wake_unlock(&alarm_rtc_wake_lock);
 }
-/* OPPO 2012-09-12 liujun Add end */
+#endif /* CONFIG_OPPO_OFFMODE_ALARM */
 
 /**
  * alarm_set_rtc - set the kernel and rtc walltime
@@ -545,11 +529,11 @@ int alarm_set_rtc(struct timespec new_time)
 		alarms[i].stopped = true;
 		alarms[i].stopped_time = timespec_to_ktime(tmp_time);
 	}
-/* OPPO 2012-09-28 liujun Add begin for power up alarm */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	hrtimer_try_to_cancel(&alarms[ANDROID_ALARM_RTC_POWERUP].timer);
 	alarms[ANDROID_ALARM_RTC_POWERUP].stopped = true;
 	alarms[ANDROID_ALARM_RTC_POWERUP].stopped_time = timespec_to_ktime(tmp_time);
-/* OPPO 2012-09-28 liujun Add end */
+#endif
 	alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].delta =
 		alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta =
 		ktime_sub(alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta,
@@ -561,10 +545,10 @@ int alarm_set_rtc(struct timespec new_time)
 		alarms[i].stopped = false;
 		update_timer_locked(&alarms[i], false);
 	}
-/* OPPO 2012-09-28 liujun Add begin for power up alarm */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	alarms[ANDROID_ALARM_RTC_POWERUP].stopped = false;
 	update_timer_locked(&alarms[ANDROID_ALARM_RTC_POWERUP], false);
-/* OPPO 2012-09-28 liujun Add end */
+#endif
 	spin_unlock_irqrestore(&alarm_slock, flags);
 	if (ret < 0) {
 		pr_alarm(ERROR, "alarm_set_rtc: Failed to set time\n");
@@ -598,11 +582,11 @@ alarm_update_timedelta(struct timespec tmp_time, struct timespec new_time)
 		alarms[i].stopped = true;
 		alarms[i].stopped_time = timespec_to_ktime(tmp_time);
 	}
-/* OPPO 2012-09-28 liujun Add begin for power up alarm */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	hrtimer_try_to_cancel(&alarms[ANDROID_ALARM_RTC_POWERUP].timer);
 	alarms[ANDROID_ALARM_RTC_POWERUP].stopped = true;
 	alarms[ANDROID_ALARM_RTC_POWERUP].stopped_time = timespec_to_ktime(tmp_time);
-/* OPPO 2012-09-28 liujun Add end */
+#endif
 	alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].delta =
 		alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta =
 		ktime_sub(alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta,
@@ -611,10 +595,10 @@ alarm_update_timedelta(struct timespec tmp_time, struct timespec new_time)
 		alarms[i].stopped = false;
 		update_timer_locked(&alarms[i], false);
 	}
-/* OPPO 2012-09-28 liujun Add begin for power up alarm */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	alarms[ANDROID_ALARM_RTC_POWERUP].stopped = false;
 	update_timer_locked(&alarms[ANDROID_ALARM_RTC_POWERUP], false);
-/* OPPO 2012-09-28 liujun Add end */
+#endif
 	spin_unlock_irqrestore(&alarm_slock, flags);
 }
 
@@ -709,9 +693,9 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 	hrtimer_cancel(&alarms[ANDROID_ALARM_RTC_WAKEUP].timer);
 	hrtimer_cancel(&alarms[
 			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].timer);
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	hrtimer_cancel(&alarms[ANDROID_ALARM_RTC_POWERUP].timer); /* mwalker */
-/* OPPO 2012-09-12 liujun Add end */
+#endif
 
 	tmp_queue = &alarms[ANDROID_ALARM_RTC_WAKEUP];
 	if (tmp_queue->first)
@@ -722,14 +706,13 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 				hrtimer_get_expires(&wakeup_queue->timer).tv64))
 		wakeup_queue = tmp_queue;
 
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
-	/* mwalker */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	tmp_queue = &alarms[ANDROID_ALARM_RTC_POWERUP];
 	if (tmp_queue->first && (!wakeup_queue ||
 				hrtimer_get_expires(&tmp_queue->timer).tv64 <
 				hrtimer_get_expires(&wakeup_queue->timer).tv64))
 		wakeup_queue = tmp_queue;
-/* OPPO 2012-09-12 liujun Add end */
+#endif
 
 	if (wakeup_queue) {
 		rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
@@ -765,10 +748,10 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 									false);
 			update_timer_locked(&alarms[
 				ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP], false);
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 			update_timer_locked(&alarms[ANDROID_ALARM_RTC_POWERUP],
-									false);	/* mwalker */
-/* OPPO 2012-09-12 liujun Add end */
+									false);
+#endif
 			err = -EBUSY;
 			spin_unlock_irqrestore(&alarm_slock, flags);
 		}
@@ -792,9 +775,9 @@ static int alarm_resume(struct platform_device *pdev)
 	update_timer_locked(&alarms[ANDROID_ALARM_RTC_WAKEUP], false);
 	update_timer_locked(&alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP],
 									false);
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	update_timer_locked(&alarms[ANDROID_ALARM_RTC_POWERUP], false); /* mwalker */
-/* OPPO 2012-09-12 liujun Add end */
+#endif
 
 	spin_unlock_irqrestore(&alarm_slock, flags);
 
@@ -831,10 +814,9 @@ static int rtc_alarm_add_device(struct device *dev,
 	pr_alarm(INIT_STATUS, "using rtc device, %s, for alarms", rtc->name);
 	mutex_unlock(&alarm_setrtc_mutex);
 
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
-	// mwalker active rtc task work
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	rtc_work.active = true;
-/* OPPO 2012-09-12 liujun Add end */
+#endif
 
 	return 0;
 
@@ -850,11 +832,10 @@ static void rtc_alarm_remove_device(struct device *dev,
 				    struct class_interface *class_intf)
 {
 	if (dev == &alarm_rtc_dev->dev) {
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
-		// mwalker clear rtc alarm queue
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 		rtc_work.active = false;
 		cancel_work_sync(&rtc_work.alarm_task);
-/* OPPO 2012-09-12 liujun Add end */
+#endif
 
 		pr_alarm(INIT_STATUS, "lost rtc device for alarms");
 		rtc_irq_unregister(alarm_rtc_dev, &alarm_rtc_task);
@@ -907,11 +888,11 @@ static int __init alarm_driver_init(void)
 				CLOCK_REALTIME, HRTIMER_MODE_ABS);
 		alarms[i].timer.function = alarm_timer_triggered;
 	}
-/* OPPO 2012-09-28 liujun Add begin for power up alarm */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	hrtimer_init(&alarms[ANDROID_ALARM_RTC_POWERUP].timer,
 				CLOCK_REALTIME, HRTIMER_MODE_ABS);
 	alarms[ANDROID_ALARM_RTC_POWERUP].timer.function = alarm_timer_triggered;
-/* OPPO 2012-09-28 liujun Add end */
+#endif
 	hrtimer_init(&alarms[ANDROID_ALARM_SYSTEMTIME].timer,
 		     CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
 	alarms[ANDROID_ALARM_SYSTEMTIME].timer.function = alarm_timer_triggered;
@@ -920,13 +901,12 @@ static int __init alarm_driver_init(void)
 		goto err1;
 	wake_lock_init(&alarm_rtc_wake_lock, WAKE_LOCK_SUSPEND, "alarm_rtc");
 
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
-	// mwalker
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	INIT_LIST_HEAD(&rtc_work.cmd_list);
 	INIT_WORK(&rtc_work.alarm_task, rtc_task);
 	mutex_init(&rtc_work.mutex);
 	spin_lock_init(&rtc_work.slock);
-/* OPPO 2012-09-12 liujun Add end */
+#endif
 
 	rtc_alarm_interface.class = rtc_class;
 	err = class_interface_register(&rtc_alarm_interface);
@@ -944,8 +924,7 @@ err1:
 
 static void  __exit alarm_exit(void)
 {
-/* OPPO 2012-09-12 liujun Add begin for power up alarm */
-	// mwalker make clean
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	unsigned long flags;
 	struct rtc_cmd *cmd;
 	struct list_head *list_pos, *list_pos_tmp;
@@ -962,7 +941,7 @@ static void  __exit alarm_exit(void)
 	spin_unlock_irqrestore(&rtc_work.slock, flags);
 
 	mutex_destroy(&rtc_work.mutex);
-/* OPPO 2012-09-12 liujun Add end */
+#endif
 
 	class_interface_unregister(&rtc_alarm_interface);
 	wake_lock_destroy(&alarm_rtc_wake_lock);
