@@ -15,12 +15,14 @@
  *
  */
 
-#define CONFIG_VENDOR_EDIT
-
 #include <linux/types.h>
 #include <linux/sysdev.h>
 #include <asm/mach-types.h>
 #include <mach/socinfo.h>
+
+#ifdef CONFIG_MACH_OPPO
+#include <linux/pcb_version.h>
+#endif
 
 #include "smd_private.h"
 
@@ -125,16 +127,17 @@ struct socinfo_v7 {
 	uint32_t pmic_model;
 	uint32_t pmic_die_revision;
 };
-/*OPPO yuyi add begin*/
-#ifdef CONFIG_VENDOR_EDIT
+
+#ifdef CONFIG_MACH_OPPO
 struct socinfo_v8 {
 	char hw_pcb_version[10];
 };
+
 struct socinfo_v9 {
 	char hw_rf_version[10];
 };
 #endif
-/*OPPO yuyi add end*/
+
 static union {
 	struct socinfo_v1 v1;
 	struct socinfo_v2 v2;
@@ -143,9 +146,9 @@ static union {
 	struct socinfo_v5 v5;
 	struct socinfo_v6 v6;
 	struct socinfo_v7 v7;
-#ifdef CONFIG_VENDOR_EDIT
-	struct socinfo_v8 v8;/*yuyi add*/
-	struct socinfo_v9 v9;/*yuyi add*/
+#ifdef CONFIG_MACH_OPPO
+	struct socinfo_v8 v8;
+	struct socinfo_v9 v9;
 #endif
 } *socinfo;
 
@@ -330,75 +333,6 @@ static struct socinfo_v1 dummy_socinfo = {
 	.version = 1,
 };
 
-/*OPPO yuyi add begin*/
-#ifdef CONFIG_VENDOR_EDIT
-#include <linux/pcb_version.h>
-char * socinfo_get_hw_pcb_version(void)
-{
-	char *hw_version = "NULL";
-	switch(get_pcb_version()) {
-		case PCB_VERSION_EVB:
-		case PCB_VERSION_EVB_TD:
-
-			hw_version ="EVB";
-			break;
-		case PCB_VERSION_EVT:
-		case PCB_VERSION_EVT_TD:
-		case PCB_VERSION_EVT_N1:
-		case PCB_VERSION_EVT_N1F:
-		case PCB_VERSION_EVT_N1W:	
-			hw_version = "EVT";
-			break;
-		case PCB_VERSION_DVT:
-		case PCB_VERSION_DVT_TD:
-		case PCB_VERSION_DVT_N1F:
-		case PCB_VERSION_DVT_N1T:
-		case PCB_VERSION_DVT_N1W:	
-			hw_version = "DVT";
-			break;
-		case PCB_VERSION_PVT:
-		case PCB_VERSION_PVT_TD:
-		case PCB_VERSION_PVT_N1F:
-		case PCB_VERSION_PVT_N1T:
-		case PCB_VERSION_PVT_N1W:	
-			hw_version = "PVT";
-			break;
-		case PCB_VERSION_PVT2_TD:
-			hw_version = "PVT2";
-			break;
-		case PCB_VERSION_PVT3_TD:
-			hw_version = "PVT3";
-			break;
-		case PCB_VERSION_EVT3_N1F:
-		case PCB_VERSION_EVT3_N1T:
-			hw_version = "EVT3";
-			break;
-		default:
-			hw_version = "UNKOWN";
-		}
-
-	return hw_version;
-}
-
-char *socinfo_get_hw_rf_version(void)
-{
-	char *rf_version ="NULL";
-	if((get_pcb_version() >= PCB_VERSION_EVB) &&(get_pcb_version() <= PCB_VERSION_PVT)) {
-		rf_version = "X909";
-	} else if((get_pcb_version() >= PCB_VERSION_EVB_TD) &&(get_pcb_version() <= PCB_VERSION_PVT3_TD)) {
-		rf_version = "X909T";
-	} else if((get_pcb_version() == PCB_VERSION_EVT_N1)||((get_pcb_version() >= PCB_VERSION_EVT3_N1T) &&(get_pcb_version() <= PCB_VERSION_PVT_N1T))) {
-		rf_version = "N1T";
-	}else if((get_pcb_version() >= PCB_VERSION_EVT_N1F) &&(get_pcb_version() <= PCB_VERSION_PVT_N1F)){
-		rf_version = "N1";
-	} else if((get_pcb_version() >= PCB_VERSION_EVT_N1W) &&(get_pcb_version() <= PCB_VERSION_PVT_N1W)){
-		rf_version = "N1W";
-	}
-
-	return rf_version;
-}
-#endif
-/*OPPO yuyi add end*/
 uint32_t socinfo_get_id(void)
 {
 	return (socinfo) ? socinfo->v1.id : 0;
@@ -480,37 +414,7 @@ enum msm_cpu socinfo_get_msm_cpu(void)
 	return cur_cpu;
 }
 EXPORT_SYMBOL_GPL(socinfo_get_msm_cpu);
-/*OPPO yuyi add begin*/
-#ifdef CONFIG_VENDOR_EDIT
-static ssize_t
-socinfo_show_hw_pcb_version(struct sys_device *dev,
-		      struct sysdev_attribute *attr,
-		      char *buf)
-{
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
 
-	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
-			socinfo_get_hw_pcb_version());
-}
-
-static ssize_t
-socinfo_show_hw_rf_version(struct sys_device *dev,
-		      struct sysdev_attribute *attr,
-		      char *buf)
-{
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
-
-	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
-			socinfo_get_hw_rf_version());
-}
-#endif
-/*OPPO yuyi add end*/
 static ssize_t
 socinfo_show_id(struct sys_device *dev,
 		struct sysdev_attribute *attr,
@@ -712,16 +616,37 @@ socinfo_show_pmic_die_revision(struct sys_device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u\n",
 		socinfo_get_pmic_die_revision());
 }
-/*OPPO yuyi add begin*/
-#ifdef CONFIG_VENDOR_EDIT
-static struct sysdev_attribute socinfo_v8_files[] = {
-	_SYSDEV_ATTR(hw_pcb_version, 0444, socinfo_show_hw_pcb_version, NULL),
-};
-static struct sysdev_attribute socinfo_v9_files[] = {
-	_SYSDEV_ATTR(hw_rf_version, 0444, socinfo_show_hw_rf_version, NULL),
-};
+
+#ifdef CONFIG_MACH_OPPO
+static ssize_t
+socinfo_show_hw_pcb_version(struct sys_device *dev,
+		      struct sysdev_attribute *attr,
+		      char *buf)
+{
+	if (!socinfo) {
+		pr_err("%s: No socinfo found!\n", __func__);
+		return 0;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+			get_hw_pcb_version());
+}
+
+static ssize_t
+socinfo_show_hw_rf_version(struct sys_device *dev,
+		      struct sysdev_attribute *attr,
+		      char *buf)
+{
+	if (!socinfo) {
+		pr_err("%s: No socinfo found!\n", __func__);
+		return 0;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+			get_hw_rf_version());
+}
 #endif
-/*OPPO yuyi add end*/
+
 static struct sysdev_attribute socinfo_v1_files[] = {
 	_SYSDEV_ATTR(id, 0444, socinfo_show_id, NULL),
 	_SYSDEV_ATTR(version, 0444, socinfo_show_version, NULL),
@@ -758,6 +683,18 @@ static struct sysdev_attribute socinfo_v7_files[] = {
 	_SYSDEV_ATTR(pmic_die_revision, 0444,
 			socinfo_show_pmic_die_revision, NULL),
 };
+
+#ifdef CONFIG_MACH_OPPO
+static struct sysdev_attribute socinfo_v8_files[] = {
+	_SYSDEV_ATTR(hw_pcb_version, 0444,
+			socinfo_show_hw_pcb_version, NULL),
+};
+
+static struct sysdev_attribute socinfo_v9_files[] = {
+	_SYSDEV_ATTR(hw_rf_version, 0444,
+			socinfo_show_hw_rf_version, NULL),
+};
+#endif
 
 static struct sysdev_class soc_sysdev_class = {
 	.name = "soc",
@@ -805,14 +742,6 @@ static int __init socinfo_init_sysdev(void)
 		       __func__, err);
 		return err;
 	}
-	/*OPPO yuyi add begin*/
-#ifdef CONFIG_VENDOR_EDIT
-	socinfo_create_files(&soc_sys_device, socinfo_v8_files,
-			ARRAY_SIZE(socinfo_v8_files));
-	socinfo_create_files(&soc_sys_device, socinfo_v9_files,
-			ARRAY_SIZE(socinfo_v9_files));
-#endif
-	/*OPPO yuyi add end*/
 	socinfo_create_files(&soc_sys_device, socinfo_v1_files,
 				ARRAY_SIZE(socinfo_v1_files));
 	if (socinfo->v1.format < 2)
@@ -849,6 +778,14 @@ static int __init socinfo_init_sysdev(void)
 
 	return socinfo_create_files(&soc_sys_device, socinfo_v7_files,
 				ARRAY_SIZE(socinfo_v7_files));
+
+#ifdef CONFIG_MACH_OPPO
+	socinfo_create_files(&soc_sys_device, socinfo_v8_files,
+			ARRAY_SIZE(socinfo_v8_files));
+
+	socinfo_create_files(&soc_sys_device, socinfo_v9_files,
+			ARRAY_SIZE(socinfo_v9_files));
+#endif
 }
 
 arch_initcall(socinfo_init_sysdev);
