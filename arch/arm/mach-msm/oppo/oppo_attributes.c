@@ -23,6 +23,42 @@
 #include <linux/oppo_attributes.h>
 #include <linux/pcb_version.h>
 
+static ssize_t startup_mode_show(struct kobject *kobj, struct kobj_attribute *attr,
+			     char *buf)
+{
+	return sprintf(buf, "%s", get_start_reason());
+}
+
+static ssize_t startup_mode_store(struct kobject *kobj, struct kobj_attribute *attr,
+			   const char *buf, size_t n)
+{
+	return 0;
+}
+
+struct kobj_attribute startup_mode_attr = {
+	.attr = { "startup_mode", 0644 },
+	.show = &startup_mode_show,
+	.store = &startup_mode_store,
+};
+
+static ssize_t app_boot_show(struct kobject *kobj, struct kobj_attribute *attr,
+			     char *buf)
+{
+	return sprintf(buf, "%s", get_boot_mode_str());
+}
+
+static ssize_t app_boot_store(struct kobject *kobj, struct kobj_attribute *attr,
+			   const char *buf, size_t n)
+{
+	return 0;
+}
+
+struct kobj_attribute app_boot_attr = {
+	.attr = { "app_boot", 0644 },
+	.show = &app_boot_show,
+	.store = &app_boot_store,
+};
+
 static ssize_t closemodem_store(struct kobject *kobj, struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
@@ -61,6 +97,8 @@ static struct kobj_attribute ftmmode_attr = {
 };
 
 static struct attribute *systeminfo_attr_list[] = {
+	&startup_mode_attr.attr,
+	&app_boot_attr.attr,
 	&ftmmode_attr.attr,
 	&closemodem_attr.attr,
 	NULL,
