@@ -328,42 +328,38 @@ static int __rtc_set_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 	struct rtc_time tm;
 	long now, scheduled;
 	int err;
-/* OPPO 2012-09-12 liujun Add begin for clear alarm register */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	struct rtc_time rtc_tm;
 
-	memset(&rtc_tm, 0, sizeof(rtc_tm));// mwalker
-/* OPPO 2012-09-12 liujun Add end */
+	memset(&rtc_tm, 0, sizeof(rtc_tm));
+#endif
 
 	err = rtc_valid_tm(&alarm->time);
-/* OPPO 2012-09-12 liujun Modify begin for clear alarm register */
-#if 0
-	if (err)
-		return err;
-#else
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	/* Open a door to clear alarm register by mwalker. */
 	if (err != 0 && memcmp(&alarm->time, &rtc_tm, sizeof(rtc_tm))){
 		dev_err(&rtc->dev, "invalide alarm time\n");//Roshan
 		return err;
 	}
+#else
+	if (err)
+		return err;
 #endif
-/* OPPO 2012-09-12 liujun Modify end */
 
 	rtc_tm_to_time(&alarm->time, &scheduled);
 
 	/* Make sure we're not setting alarms in the past */
 	err = __rtc_read_time(rtc, &tm);
 	rtc_tm_to_time(&tm, &now);
-/* OPPO 2012-09-12 liujun Modify begin for clear alarm register */
-#if 0
-	if (scheduled <= now)
-		return -ETIME;
-#else
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	if (scheduled <= now && memcmp(&alarm->time, &rtc_tm, sizeof(rtc_tm))){
 		dev_warn(&rtc->dev, "%s : try to set alarm in the past\n", __func__);//Roshan
 		return -ETIME;
 	}
+#else
+	if (scheduled <= now)
+		return -ETIME;
 #endif
-/* OPPO 2012-09-12 liujun Modify end */
 	/*
 	 * XXX - We just checked to make sure the alarm time is not
 	 * in the past, but there is still a race window where if
@@ -385,7 +381,7 @@ int rtc_set_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 {
 	int err;
 
-/* OPPO 2012-09-12 liujun Add begin for clear alarm register */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 	struct rtc_time rtc_tm;
 
 	memset(&rtc_tm, 0, sizeof(rtc_tm));// mwalker
@@ -395,7 +391,7 @@ int rtc_set_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 		err = __rtc_set_alarm(rtc, alarm);
 		return err;
 	}
-/* OPPO 2012-09-12 liujun Add end */
+#endif
 
 	err = rtc_valid_tm(&alarm->time);
 	if (err != 0)

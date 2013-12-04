@@ -40,18 +40,16 @@ module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 		} \
 	} while (0)
 
-/* OPPO 2012-09-12 liujun Modify begin for add power up alarm type */
-#if 0
-#define ANDROID_ALARM_WAKEUP_MASK ( \
-	ANDROID_ALARM_RTC_WAKEUP_MASK | \
-	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK)
-#else
+#if CONFIG_OPPO_OFFMODE_ALARM
 #define ANDROID_ALARM_WAKEUP_MASK ( \
 	ANDROID_ALARM_RTC_WAKEUP_MASK | \
 	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK | \
 	ANDROID_ALARM_RTC_POWERUP)
+#else
+#define ANDROID_ALARM_WAKEUP_MASK ( \
+	ANDROID_ALARM_RTC_WAKEUP_MASK | \
+	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK)
 #endif
-/* OPPO 2012-09-12 liujun Modify end */
 
 /* support old usespace code */
 #define ANDROID_ALARM_SET_OLD               _IOW('a', 2, time_t) /* set alarm */
@@ -172,9 +170,9 @@ from_old_alarm_set:
 		break;
 	case ANDROID_ALARM_GET_TIME(0):
 		switch (alarm_type) {
-/* OPPO 2012-09-12 liujun Add begin for add power up alarm type */
+#ifdef CONFIG_OPPO_OFFMODE_ALARM
 		case ANDROID_ALARM_RTC_POWERUP: /* mwalker to get rtc alarm powerup */
-/* OPPO 2012-09-12 liujun Add end */
+#endif
 		case ANDROID_ALARM_RTC_WAKEUP:
 		case ANDROID_ALARM_RTC:
 			getnstimeofday(&tmp_time);
