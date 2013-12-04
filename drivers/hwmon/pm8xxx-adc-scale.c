@@ -16,8 +16,6 @@
 #include <linux/module.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 
-#include <linux/pcb_version.h>
-
 #define KELVINMIL_DEGMIL	273160
 
 /* Units for temperature below (on x axis) is in 0.1DegC as
@@ -29,7 +27,6 @@
    their framework which is 0.1DegC. True resolution of 0.1DegC
    will result in the below table size to increase by 10 times */
 
-/* OPPO 2012-08-10 chendx Modify begin for BTM */
 #ifndef CONFIG_MACH_OPPO
 static const struct pm8xxx_adc_map_pt adcmap_btm_threshold[] = {
 	{-300,	1642},
@@ -117,7 +114,6 @@ static const struct pm8xxx_adc_map_pt adcmap_btm_threshold[] = {
 	{790,	203}
 };
 #else
-/*OPPO*/
 static const struct pm8xxx_adc_map_pt adcmap_btm_threshold[] = {
 	{-350, 1473},
 	{-340, 1460},
@@ -345,9 +341,8 @@ static const struct pm8xxx_adc_map_pt adcmap_btm_threshold2[] = {
 	{740, 438 },
 	{750, 436 }
 };
-
 #endif
-/* OPPO 2012-08-10 chendx Modify end */
+
 static const struct pm8xxx_adc_map_pt adcmap_pa_therm[] = {
 	{1731,	-30},
 	{1726,	-29},
@@ -858,19 +853,11 @@ int32_t pm8xxx_adc_scale_batt_therm(int32_t adc_code,
 	bat_voltage = pm8xxx_adc_scale_ratiometric_calib(adc_code,
 			adc_properties, chan_properties);
 
-	if(get_pcb_version() == PCB_VERSION_PVT3_TD) {
-		return pm8xxx_adc_map_batt_therm(
-			adcmap_btm_threshold2,
-			ARRAY_SIZE(adcmap_btm_threshold2),
-			bat_voltage,
-			&adc_chan_result->physical);
-	}else {
-		return pm8xxx_adc_map_batt_therm(
+	return pm8xxx_adc_map_batt_therm(
 			adcmap_btm_threshold,
 			ARRAY_SIZE(adcmap_btm_threshold),
 			bat_voltage,
 			&adc_chan_result->physical);
-	}
 }
 EXPORT_SYMBOL_GPL(pm8xxx_adc_scale_batt_therm);
 
