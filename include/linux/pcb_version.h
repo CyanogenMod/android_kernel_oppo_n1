@@ -1,21 +1,10 @@
-/************************************************************ 
+/************************************************************
 ** Copyright (C), 2010-2013, OPPO Mobile Comm Corp., Ltd
-** All rights reserved. 
+** All rights reserved.
 ************************************************************/
 #ifndef _PCB_VERSION_H
 #define _PCB_VERSION_H
 
-enum {
-	MSM_BOOT_MODE_NORMAL,
-	MSM_BOOT_MODE_FASTBOOT,
-	MSM_BOOT_MODE_RECOVERY,
-	MSM_BOOT_MODE_FACTORY,
-	MSM_BOOT_MODE_RF,
-	MSM_BOOT_MODE_WLAN,
-	MSM_BOOT_MODE_CHARGE,
-};
-
-/*OPPO 2013-08-23 zhangpan add begin for read hw version*/
 enum {
 	PCB_VERSION_EVB,
 	PCB_VERSION_EVT,
@@ -42,13 +31,7 @@ enum {
 
 	PCB_VERSION_UNKNOWN,
 };
-/*OPPO 2013-08-23 zhangpan add end for read hw version*/
 
-int get_boot_mode(void);
 int get_pcb_version(void);
-char * get_boot_mode_str(void);
-char * get_start_reason(void);
-void set_need_pin_process_flag(int flag);
-int get_sim_status(void);
 
 #endif /* _PCB_VERSION_H */

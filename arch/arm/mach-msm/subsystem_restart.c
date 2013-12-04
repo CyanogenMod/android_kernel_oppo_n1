@@ -35,7 +35,10 @@
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
 
+#ifdef CONFIG_MACH_OPPO
+#include <linux/oppo_attributes.h>
 #include <linux/pcb_version.h>
+#endif
 
 #include "smd_private.h"
 
