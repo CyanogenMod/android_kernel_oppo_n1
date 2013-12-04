@@ -1029,6 +1029,13 @@ config FB_MSM_EBI2_PANEL_DETECT
 	---help---
 	  Support for EBI2 panel auto detect
 
+config FB_MSM_MIPI_BACKLIGHT_LM3528
+	bool "LM3528 LCD Backlight Driver"
+	depends on I2C
+	default n
+	---help---
+	  Support for LM3528 LCD backlight
+
 config FB_MSM_MIPI_BACKLIGHT_LM3630
 	bool "LM36308 LCD Backlight Driver"
 	depends on I2C
