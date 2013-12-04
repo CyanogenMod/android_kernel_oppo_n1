@@ -1,12 +1,12 @@
-/************************************************************ 
+/************************************************************
 ** Copyright (C), 2013-2016, OPPO Mobile Comm Corp., Ltd
-** All rights reserved. 
+** All rights reserved.
 ** Author: He Wei
 ************************************************************/
 #ifndef _BOOT_MODE_H
 #define _BOOT_MODE_H
 
-enum{
+enum {
 	MSM_BOOT_MODE__NORMAL,
 	MSM_BOOT_MODE__FASTBOOT,
 	MSM_BOOT_MODE__RECOVERY,
@@ -16,7 +16,9 @@ enum{
 	MSM_BOOT_MODE__CHARGE,
 };
 
-extern int get_boot_mode(void);
+int get_boot_mode(void);
+char *get_boot_mode_str(void);
+char *get_start_reason(void);
 
 #endif /* _BOOT_MODE_H */
 

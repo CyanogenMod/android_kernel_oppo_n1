@@ -18,6 +18,7 @@
 #include <linux/hrtimer.h>
 
 #ifdef CONFIG_MACH_OPPO
+#include <linux/boot_mode.h>
 #include <linux/pcb_version.h>
 #endif
 
