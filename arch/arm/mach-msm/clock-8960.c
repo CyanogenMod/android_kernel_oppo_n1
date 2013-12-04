@@ -5433,6 +5433,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("cam_clk",		cam1_clk.c,	"4-0048"),
 	CLK_LOOKUP("cam_clk",		cam1_clk.c,	"4-006c"),
 #ifdef CONFIG_MACH_OPPO
+	CLK_LOOKUP("cam_clk",		cam2_clk.c,	"4-003c"),
 	CLK_LOOKUP("cam_clk",		cam2_clk.c,	"0-0010"),
 	CLK_LOOKUP("cam_clk",		cam2_clk.c,	"7-0010"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"7-003e"),
