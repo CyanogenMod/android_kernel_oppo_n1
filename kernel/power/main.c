@@ -17,11 +17,6 @@
 #include <linux/seq_file.h>
 #include <linux/hrtimer.h>
 
-#ifdef CONFIG_MACH_OPPO
-#include <linux/boot_mode.h>
-#include <linux/pcb_version.h>
-#endif
-
 #include "power.h"
 
 #define MAX_BUF 100
@@ -506,48 +501,6 @@ power_attr(wake_lock);
 power_attr(wake_unlock);
 #endif
 
-/* OPPO 2012-11-05 Van Modify begin for add interface start reason and boot_mode begin */
-static ssize_t startup_mode_show(struct kobject *kobj, struct kobj_attribute *attr,
-			     char *buf)
-{
-	return sprintf(buf, "%s", get_start_reason());
-}
-
-static ssize_t startup_mode_store(struct kobject *kobj, struct kobj_attribute *attr,
-			   const char *buf, size_t n)
-{
-	return 0;
-}
-power_attr(startup_mode);
-
-static ssize_t app_boot_show(struct kobject *kobj, struct kobj_attribute *attr,
-			     char *buf)
-{
-#if 1
-	return sprintf(buf, "%s", get_boot_mode_str());
-#else
-    if (reboot_reason == 0x77665501)
-        return sprintf(buf, "reboot");
-    else if (reboot_reason == 0x7766550a)
-        return sprintf(buf, "kernel");
-    else if (reboot_reason == 0x7766550b)
-        return sprintf(buf, "modem");
-    else if (reboot_reason == 0x7766550c)
-        return sprintf(buf, "android");
-    else
-        return sprintf(buf, "normal");
-#endif
-}
-
-static ssize_t app_boot_store(struct kobject *kobj, struct kobj_attribute *attr,
-			   const char *buf, size_t n)
-{
-	return 0;
-}
-power_attr(app_boot);
-/* OPPO 2012-11-05 Van Modify begin for add interface start reason and boot_mode end */
-
-
 static struct attribute *g[] = {
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
@@ -567,10 +520,6 @@ static struct attribute *g[] = {
 	&wake_unlock_attr.attr,
 #endif
 #endif
-/* OPPO 2012-11-05 Van Modify begin for add interface start reason and boot_mode begin */
-	&app_boot_attr.attr,
-	&startup_mode_attr.attr,
-/* OPPO 2012-11-05 Van Modify begin for add interface start reason and boot_mode end */
 	NULL,
 };
 
