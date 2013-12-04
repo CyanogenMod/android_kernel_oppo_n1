@@ -72,3 +72,70 @@ int __init board_pcb_verson_init(char *s)
 	return 0;
 }
 __setup("oppo.pcb_version=", board_pcb_verson_init);
+
+char *get_hw_pcb_version(void)
+{
+	char *hw_version = "NULL";
+	switch(get_pcb_version()) {
+		case PCB_VERSION_EVB:
+		case PCB_VERSION_EVB_TD:
+
+			hw_version ="EVB";
+			break;
+		case PCB_VERSION_EVT:
+		case PCB_VERSION_EVT_TD:
+		case PCB_VERSION_EVT_N1:
+		case PCB_VERSION_EVT_N1F:
+		case PCB_VERSION_EVT_N1W:	
+			hw_version = "EVT";
+			break;
+		case PCB_VERSION_DVT:
+		case PCB_VERSION_DVT_TD:
+		case PCB_VERSION_DVT_N1F:
+		case PCB_VERSION_DVT_N1T:
+		case PCB_VERSION_DVT_N1W:	
+			hw_version = "DVT";
+			break;
+		case PCB_VERSION_PVT:
+		case PCB_VERSION_PVT_TD:
+		case PCB_VERSION_PVT_N1F:
+		case PCB_VERSION_PVT_N1T:
+		case PCB_VERSION_PVT_N1W:	
+			hw_version = "PVT";
+			break;
+		case PCB_VERSION_PVT2_TD:
+			hw_version = "PVT2";
+			break;
+		case PCB_VERSION_PVT3_TD:
+			hw_version = "PVT3";
+			break;
+		case PCB_VERSION_EVT3_N1F:
+		case PCB_VERSION_EVT3_N1T:
+			hw_version = "EVT3";
+			break;
+		default:
+			hw_version = "UNKOWN";
+		}
+
+	return hw_version;
+}
+EXPORT_SYMBOL(get_hw_pcb_version);
+
+char *get_hw_rf_version(void)
+{
+	char *rf_version ="NULL";
+	if (get_pcb_version() >= PCB_VERSION_EVB && get_pcb_version() <= PCB_VERSION_PVT) {
+		rf_version = "X909";
+	} else if (get_pcb_version() >= PCB_VERSION_EVB_TD && get_pcb_version() <= PCB_VERSION_PVT3_TD) {
+		rf_version = "X909T";
+	} else if (get_pcb_version() == PCB_VERSION_EVT_N1 || (get_pcb_version() >= PCB_VERSION_EVT3_N1T && get_pcb_version() <= PCB_VERSION_PVT_N1T)) {
+		rf_version = "N1T";
+	} else if (get_pcb_version() >= PCB_VERSION_EVT_N1F && get_pcb_version() <= PCB_VERSION_PVT_N1F) {
+		rf_version = "N1";
+	} else if (get_pcb_version() >= PCB_VERSION_EVT_N1W && get_pcb_version() <= PCB_VERSION_PVT_N1W) {
+		rf_version = "N1W";
+	}
+
+	return rf_version;
+}
+EXPORT_SYMBOL(get_hw_rf_version);
