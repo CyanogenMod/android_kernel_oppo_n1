@@ -893,15 +893,8 @@ static struct msm_bus_scale_pdata usb_bus_scale_pdata = {
 };
 
 static int phy_init_seq[] = {
-/*OPPO,songxh add begain for USB Eye_Diagram ,2013-11-14*/
-#if 0
-	0x38, 0x81, /* update DC voltage level */
-	0x24, 0x82, /* set pre-emphasis and rise/fall time */
-#else
 	0x33, 0x81, /* update DC voltage level */
 	0x34, 0x82, /* set pre-emphasis and rise/fall time */
-#endif
-/*OPPO,songxh add end for USB Eye_Diagram ,2013-11-14*/
 	-1
 };
 
@@ -2959,8 +2952,7 @@ static struct platform_device camera_rotate_keys_device ={
 
 static void apq8064_init_gpio_key(void)
 {
-	if (get_pcb_version() < PCB_VERSION_EVT)
-	{
+	if (get_pcb_version() < PCB_VERSION_EVT) {
 		vol_keys[0].gpio = GPIO_KEY_VOLUME_DOWN_EVB;
 		vol_keys[1].gpio = GPIO_KEY_VOLUME_UP_EVB;
 	}
@@ -2974,9 +2966,9 @@ static void apq8064_init_gpio_key(void)
 				GPIO_CFG_PULL_UP, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
 		vol_keys[0].active_low = 1;
 	}
-	if(get_pcb_version() < PCB_VERSION_PVT){
+	if (get_pcb_version() < PCB_VERSION_PVT) {
 		vol_keys[2].gpio = GPIO_KEY_HALLSENSOR;
-	} else{
+	} else {
 		vol_keys[2].gpio = GPIO_KEY_HALLSENSOR_PVT;
 	}
 	gpio_tlmm_config(GPIO_CFG(vol_keys[1].gpio, 0, GPIO_CFG_INPUT,
@@ -2984,7 +2976,7 @@ static void apq8064_init_gpio_key(void)
 	gpio_tlmm_config(GPIO_CFG(vol_keys[2].gpio, 0, GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_UP, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
 
-	if(get_pcb_version() >= PCB_VERSION_EVT_N1) {
+	if (get_pcb_version() >= PCB_VERSION_EVT_N1) {
 		gpio_tlmm_config(GPIO_CFG(GPIO_KEY_VOLUME_DOWN, 0, GPIO_CFG_INPUT,
 					GPIO_CFG_PULL_UP, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
 		gpio_tlmm_config(GPIO_CFG(GPIO_KEY_VOLUME_UP, 0, GPIO_CFG_INPUT,
@@ -2993,13 +2985,11 @@ static void apq8064_init_gpio_key(void)
 					GPIO_CFG_PULL_UP, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
 		platform_device_register(&gpio_keys_device_n1);
 
-		/* OPPO 2013-08-06 liubin Add for camera rotate key start */
 		gpio_tlmm_config(GPIO_CFG(GPIO_KEY_MR1, 0, GPIO_CFG_INPUT,
 					GPIO_CFG_PULL_UP, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
 		gpio_tlmm_config(GPIO_CFG(GPIO_KEY_MR2, 0, GPIO_CFG_INPUT,
 					GPIO_CFG_PULL_UP, GPIO_CFG_8MA), GPIO_CFG_ENABLE);
 		platform_device_register(&camera_rotate_keys_device);
-		/* OPPO 2013-08-06 liubin Add end */
 	} else {
 		platform_device_register(&gpio_keys_device);
 	}
