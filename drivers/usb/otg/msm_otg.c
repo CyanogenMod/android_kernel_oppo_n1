@@ -83,7 +83,7 @@
 
 #ifdef CONFIG_MACH_OPPO
 extern int pm8921_chg_connected(enum usb_chg_type chg_type);
-/* OPPO 2012-08-08 chendx Add begin for reason */
+
 #define USB_NONSTANDARD_DET_DELAY	msecs_to_jiffies(2350)
 
 static int cancel_nonstandard_worker = 0;
@@ -2311,14 +2311,10 @@ static void nonstandard_detect_work(struct work_struct *w)
 	struct msm_otg *motg = container_of(w, struct msm_otg, nonstandard_detect_work.work);
 	int line_status = 0;
 
-	pr_info("%s,%d\n", __func__,cancel_nonstandard_worker);
+	pr_info("%s,%d\n", __func__, cancel_nonstandard_worker);
 
-	if(false == is_nonstandard_worker_canceled()) 
-	{
-
-		/* OPPO 2013-10-30 sjc Add begin for DCP NON-DCP detect again */
+	if (false == is_nonstandard_worker_canceled()) {
 		line_status = readl_relaxed(USB_PORTSC);
-		//pr_info("===%s:line_status=%d===\n", __func__, line_status);
 		if ((line_status & PORTSC_LS) == PORTSC_LS) {
 			pr_info("%s:DCP\n", __func__);
 			motg->chg_type = USB_DCP_CHARGER;
