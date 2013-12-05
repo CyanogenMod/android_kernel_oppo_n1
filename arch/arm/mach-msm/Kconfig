@@ -2645,15 +2645,6 @@ config MSM_HSIC_SYSMON_TEST
 	  the modem over USB.
 
 
-# add by chendx start
-
-#Wangjc@OnlineRd.Driver, 2013/10/23, Add for kernel OPPO_DEVICE_IFNO macro
-config OPPO_DEVICE_IFNO
-	bool "config oppo device info"
-	default y if MACH_OPPO
-	help 
-	  This is the oppo device info show function, open it will enable the function.
-
 config MSM_CPU_PWRCTL
 	bool "Ensures that krait droop detectors are always off"
 	help
