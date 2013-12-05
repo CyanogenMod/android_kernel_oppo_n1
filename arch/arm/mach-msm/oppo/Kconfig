@@ -15,4 +15,10 @@ config OPPO_TRACE
 	help
 	  Oppo trace driver.
 
+config OPPO_DEVICE_INFO
+	bool "Oppo device info driver"
+	default y if MACH_OPPO
+	help
+	  Oppo device info driver.
+
 endmenu
