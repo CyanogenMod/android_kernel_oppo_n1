@@ -20,7 +20,7 @@
 #include <mach/socinfo.h>
 
 #include "devices.h"
-#include "board-8064.h"
+#include "board-x909.h"
 
 #ifdef CONFIG_MSM_DCVS
 static struct msm_dcvs_freq_entry grp3d_freq[] = {
