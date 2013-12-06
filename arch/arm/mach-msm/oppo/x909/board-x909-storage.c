@@ -23,7 +23,7 @@
 #include <mach/gpiomux.h>
 #include <mach/socinfo.h>
 #include "devices.h"
-#include "board-8064.h"
+#include "board-x909.h"
 #include "board-storage-common-a.h"
 
 
