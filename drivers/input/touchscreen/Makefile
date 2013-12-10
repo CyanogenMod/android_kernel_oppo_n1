@@ -90,6 +90,12 @@ obj-$(CONFIG_TOUCHSCREEN_MELFAS)	+= melfas_ts.o
 obj-$(CONFIG_TOUCHSCREEN_MELFAS)	+= mms100_ISC_download.o
 obj-$(CONFIG_TOUCHSCREEN_ELAN_KTF2K)	+= ektf2k.o
 obj-$(CONFIG_TOUCHSCREEN_Y8C20X66A)	+= touch_y8c20x66a.o
+ifdef CONFIG_MACH_N1
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_S3202_I2C_RMI)	+= synaptics_s3202_i2c_rmi_n1.o
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_S3202_I2C_RMI)	+= synaptics_update_firmware.o
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_S3202_I2C_RMI)	+= synaptics_dsx_rmi_dev.o
+endif
+ifdef CONFIG_MACH_X909
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_S3202_I2C_RMI)	+= synaptics_s3202_i2c_rmi_x909.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_S3202_I2C_RMI)	+= synaptics_update_firmware.o
+endif
