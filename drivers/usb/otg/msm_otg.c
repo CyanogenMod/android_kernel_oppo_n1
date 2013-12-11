@@ -57,8 +57,11 @@
 #include <mach/rpm-regulator.h>
 
 #ifdef CONFIG_MACH_OPPO
-#include <linux/power/smb358_charger.h>
 #include <linux/pcb_version.h>
+#endif
+
+#ifdef CONFIG_MACH_N1
+#include <linux/power/smb358_charger.h>
 #endif
 
 #define MSM_USB_BASE	(motg->regs)
@@ -1225,7 +1228,12 @@ static int msm_otg_set_power(struct usb_phy *phy, unsigned mA)
 	cancel_nonstandard_worker_fn("msm_otg_set_power");
 	if (motg->chg_type != USB_SDP_CHARGER) {
 		motg->chg_type = USB_SDP_CHARGER;
+#ifdef CONFIG_MACH_N1
 		smb358_charger_connected(CHARGER_TYPE__SDP);
+#endif
+#ifdef CONFIG_MACH_X909
+		pm8921_chg_connected(USB_SDP_CHARGER);
+#endif
 	}
 #endif
 
@@ -1405,7 +1413,7 @@ static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
 	 * current from the source.
 	 */
 	if (on) {
-#ifdef CONFIG_MACH_OPPO
+#ifdef CONFIG_MACH_N1
 		smb358_charger_connected(CHARGER_TYPE__OTG);
 #endif
 		msm_otg_notify_host_mode(motg, on);
@@ -1416,7 +1424,7 @@ static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
 		}
 		vbus_is_on = true;
 	} else {
-#ifdef CONFIG_MACH_OPPO
+#ifdef CONFIG_MACH_N1
 		smb358_charger_connected(CHARGER_TYPE__INVALID);
 #endif
 		ret = regulator_disable(vbus_otg);
@@ -1744,8 +1752,11 @@ static bool msm_chg_aca_detect(struct msm_otg *motg)
 			dev_dbg(phy->dev, "ID_GND\n");
 			motg->chg_type = USB_INVALID_CHARGER;
 			motg->chg_state = USB_CHG_STATE_UNDEFINED;
-#ifdef CONFIG_MACH_OPPO
+#ifdef CONFIG_MACH_N1
 			smb358_charger_connected(CHARGER_TYPE__INVALID);
+#endif
+#ifdef CONFIG_MACH_X909
+			pm8921_chg_connected(USB_INVALID_CHARGER);
 #endif
 			clear_bit(ID_A, &motg->inputs);
 			clear_bit(ID_B, &motg->inputs);
@@ -2323,21 +2334,47 @@ static void nonstandard_detect_work(struct work_struct *w)
 		if (false == is_usb_dc_plugged_in()) {
 			motg->chg_type = USB_INVALID_CHARGER;
 			msm_otg_notify_charger(motg, 0);
+#ifdef CONFIG_MACH_N1
 			smb358_charger_connected(CHARGER_TYPE__INVALID);
+#endif
+#ifdef CONFIG_MACH_X909
+			pm8921_chg_connected(motg->chg_type);
+#endif
 			goto out;
 		}
 		msm_otg_notify_charger(motg, IDEV_CHG_MIN);
-		if (motg->chg_type == USB_NON_DCP_CHARGER)
+		if (motg->chg_type == USB_NON_DCP_CHARGER) {
+#ifdef CONFIG_MACH_N1
 			smb358_charger_connected(CHARGER_TYPE__NON_DCP);
-		else if (motg->chg_type == USB_DCP_CHARGER)//sjc1030
+#endif
+#ifdef CONFIG_MACH_X909
+			pm8921_chg_connected(motg->chg_type);
+#endif
+		} else if (motg->chg_type == USB_DCP_CHARGER) {//sjc1030
+#ifdef CONFIG_MACH_N1
 			smb358_charger_connected(CHARGER_TYPE__DCP);
-		else if (motg->chg_type == USB_HDMI_CHARGER)
+#endif
+#ifdef CONFIG_MACH_X909
+			pm8921_chg_connected(motg->chg_type);
+#endif
+		} else if (motg->chg_type == USB_HDMI_CHARGER) {
+#ifdef CONFIG_MACH_N1
 			smb358_charger_connected(CHARGER_TYPE__HDMI);
+#endif
+#ifdef CONFIG_MACH_X909
+			pm8921_chg_connected(motg->chg_type);
+#endif
+		}
 	} else if (motg->chg_type != USB_SDP_CHARGER) {
 		pr_err("%s:usb seems not enumerated yet in time,but we got info from udc_irq that it is usb charger \n", __func__);
 		motg->chg_type = USB_SDP_CHARGER;
 		msm_otg_notify_charger(motg, IDEV_CHG_MIN);
+#ifdef CONFIG_MACH_N1
 		smb358_charger_connected(CHARGER_TYPE__SDP);
+#endif
+#ifdef CONFIG_MACH_X909
+		pm8921_chg_connected(motg->chg_type);
+#endif
 		goto out;
 	}
 out:
@@ -2483,15 +2520,21 @@ static void msm_otg_sm_work(struct work_struct *w)
 				case USB_DCP_CHARGER:
 					/* Enable VDP_SRC */
 					ulpi_write(otg->phy, 0x2, 0x85);
-#ifdef CONFIG_MACH_OPPO
+#ifdef CONFIG_MACH_N1
 					smb358_charger_connected(CHARGER_TYPE__DCP);
+#endif
+#ifdef CONFIG_MACH_X909
+					pm8921_chg_connected(USB_DCP_CHARGER);
 #endif
 					/* fall through */
 				case USB_PROPRIETARY_CHARGER:
 					msm_otg_notify_charger(motg,
 							IDEV_CHG_MAX);
-#ifdef CONFIG_MACH_OPPO
+#ifdef CONFIG_MACH_N1
 					smb358_charger_connected(CHARGER_TYPE__DCP);
+#endif
+#ifdef CONFIG_MACH_X909
+					pm8921_chg_connected(USB_DCP_CHARGER);
 #endif
 					pm_runtime_put_noidle(otg->phy->dev);
 					pm_runtime_suspend(otg->phy->dev);
@@ -2563,8 +2606,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 			motg->chg_state = USB_CHG_STATE_UNDEFINED;
 			motg->chg_type = USB_INVALID_CHARGER;
 			msm_otg_notify_charger(motg, 0);
-#ifdef CONFIG_MACH_OPPO
+#ifdef CONFIG_MACH_N1
 			smb358_charger_connected(CHARGER_TYPE__INVALID);
+#endif
+#ifdef CONFIG_MACH_X909
+			pm8921_chg_connected(motg->chg_type);
 #endif
 			msm_otg_reset(otg->phy);
 			/*
@@ -4128,85 +4174,85 @@ static int  __devexit msm_otg_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_MACH_OPPO
 /*****************added by songxh for shutdowm otg begain**********************/
-static void  msm_otg_shutdown(struct platform_device *pdev)
+static void msm_otg_shutdown(struct platform_device *pdev)
 {
 	struct msm_otg *motg = platform_get_drvdata(pdev);
 	struct usb_otg *otg = motg->phy.otg;
-	int cnt = 0;	
-	if (get_pcb_version() >= PCB_VERSION_EVT_N1){		
+	int cnt = 0;
+	if (get_pcb_version() >= PCB_VERSION_EVT_N1){
+		if (pdev->dev.of_node)
+			msm_otg_setup_devices(pdev, motg->pdata->mode, false);
+		if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
+			pm8921_charger_unregister_vbus_sn(0);
+		msm_otg_mhl_register_callback(motg, NULL);
+		msm_otg_debugfs_cleanup();
+		cancel_delayed_work_sync(&motg->chg_work);
+		cancel_delayed_work_sync(&motg->pmic_id_status_work);
+		cancel_delayed_work_sync(&motg->check_ta_work);
+		cancel_work_sync(&motg->sm_work);
 
-	    if (pdev->dev.of_node)
-		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
-	    if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
-		pm8921_charger_unregister_vbus_sn(0);
-	    msm_otg_mhl_register_callback(motg, NULL);
-	    msm_otg_debugfs_cleanup();
-	    cancel_delayed_work_sync(&motg->chg_work);
-	    cancel_delayed_work_sync(&motg->pmic_id_status_work);
-	    cancel_delayed_work_sync(&motg->check_ta_work);
-	    cancel_work_sync(&motg->sm_work);
+		pm_runtime_resume(&pdev->dev);
 
-	    pm_runtime_resume(&pdev->dev);
+		device_init_wakeup(&pdev->dev, 0);
+		pm_runtime_disable(&pdev->dev);
+		wake_lock_destroy(&motg->wlock);
 
-	    device_init_wakeup(&pdev->dev, 0);
-	    pm_runtime_disable(&pdev->dev);
-	    wake_lock_destroy(&motg->wlock);
+		msm_hsusb_mhl_switch_enable(motg, 0);
+		if (motg->pdata->pmic_id_irq)
+			free_irq(motg->pdata->pmic_id_irq, motg);
+		usb_set_transceiver(NULL);
+		free_irq(motg->irq, motg);
 
-	    msm_hsusb_mhl_switch_enable(motg, 0);
-	    if (motg->pdata->pmic_id_irq)
-		free_irq(motg->pdata->pmic_id_irq, motg);
-	    usb_set_transceiver(NULL);
-	    free_irq(motg->irq, motg);
+		if (motg->pdata->otg_control == OTG_PHY_CONTROL &&
+				motg->pdata->mpm_otgsessvld_int)
+			msm_mpm_enable_pin(motg->pdata->mpm_otgsessvld_int, 0);
 
-	    if (motg->pdata->otg_control == OTG_PHY_CONTROL &&
-		motg->pdata->mpm_otgsessvld_int)
-		msm_mpm_enable_pin(motg->pdata->mpm_otgsessvld_int, 0);
+		/*
+		 * Put PHY in low power mode.
+		 */
+		ulpi_read(otg->phy, 0x14);
+		ulpi_write(otg->phy, 0x08, 0x09);
 
-	    /*
-	     * Put PHY in low power mode.
-	     */
-	    ulpi_read(otg->phy, 0x14);
-	    ulpi_write(otg->phy, 0x08, 0x09);
+		writel(readl(USB_PORTSC) | PORTSC_PHCD, USB_PORTSC);
+		while (cnt < PHY_SUSPEND_TIMEOUT_USEC) {
+			if (readl(USB_PORTSC) & PORTSC_PHCD)
+				break;
+			udelay(1);
+			cnt++;
+		}
+		if (cnt >= PHY_SUSPEND_TIMEOUT_USEC)
+			dev_err(otg->phy->dev, "Unable to suspend PHY\n");
 
-	    writel(readl(USB_PORTSC) | PORTSC_PHCD, USB_PORTSC);
-	    while (cnt < PHY_SUSPEND_TIMEOUT_USEC) {
-		if (readl(USB_PORTSC) & PORTSC_PHCD)
-			break;
-		udelay(1);
-		cnt++;
-	    }
-	    if (cnt >= PHY_SUSPEND_TIMEOUT_USEC)
-		dev_err(otg->phy->dev, "Unable to suspend PHY\n");
+		clk_disable_unprepare(motg->pclk);
+		clk_disable_unprepare(motg->core_clk);
+		msm_xo_put(motg->xo_handle);
+		msm_hsusb_ldo_enable(motg, 0);
+		msm_hsusb_ldo_init(motg, 0);
+		regulator_disable(hsusb_vddcx);
+		regulator_set_voltage(hsusb_vddcx,
+				vdd_val[motg->vdd_type][VDD_NONE],
+				vdd_val[motg->vdd_type][VDD_MAX]);
 
-	    clk_disable_unprepare(motg->pclk);
-	    clk_disable_unprepare(motg->core_clk);
-	    msm_xo_put(motg->xo_handle);
-	    msm_hsusb_ldo_enable(motg, 0);
-	    msm_hsusb_ldo_init(motg, 0);
-	    regulator_disable(hsusb_vddcx);
-	    regulator_set_voltage(hsusb_vddcx,
-		vdd_val[motg->vdd_type][VDD_NONE],
-		vdd_val[motg->vdd_type][VDD_MAX]);
+		iounmap(motg->regs);
+		pm_runtime_set_suspended(&pdev->dev);
 
-	    iounmap(motg->regs);
-	    pm_runtime_set_suspended(&pdev->dev);
+		if (!IS_ERR(motg->phy_reset_clk))
+			clk_put(motg->phy_reset_clk);
+		clk_put(motg->pclk);
+		if (!IS_ERR(motg->clk))
+			clk_put(motg->clk);
+		clk_put(motg->core_clk);
 
-	    if (!IS_ERR(motg->phy_reset_clk))
-		clk_put(motg->phy_reset_clk);
-	    clk_put(motg->pclk);
-	    if (!IS_ERR(motg->clk))
-		clk_put(motg->clk);
-	    clk_put(motg->core_clk);
+		if (motg->bus_perf_client)
+			msm_bus_scale_unregister_client(motg->bus_perf_client);
 
-	    if (motg->bus_perf_client)
-		msm_bus_scale_unregister_client(motg->bus_perf_client);
+		kfree(motg->phy.otg);
+		kfree(motg);
 
-	    kfree(motg->phy.otg);
-	    kfree(motg);
-
-	    smb358_charger_connected(CHARGER_TYPE__INVALID);
+#ifdef CONFIG_MACH_N1
+		smb358_charger_connected(CHARGER_TYPE__INVALID);
+#endif
 	}
-	return ;
 }
 /*****************added by songxh for shutdowm otg end**********************/
 #endif
