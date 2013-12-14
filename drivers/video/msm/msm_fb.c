@@ -1533,6 +1533,9 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 #ifdef CONFIG_MACH_N1
 	var->height = 130;
 	var->width = 73;
+#elif defined(CONFIG_MACH_X909)
+	var->height = 110;
+	var->width = 62;
 #else
 	var->height = -1,	/* height of picture in mm */
 	var->width = -1,	/* width of picture in mm */
