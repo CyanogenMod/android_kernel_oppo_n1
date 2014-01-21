@@ -1495,9 +1495,9 @@ static void synaptics_ts_work_func(struct work_struct *work)
 				if (double_tap & 0x01)
 				{
 					print_ts(TS_INFO, KERN_INFO "double tap the tp\n");
-					input_report_key(ts->input_dev, KEY_F3, 1);
+					input_report_key(ts->input_dev, KEY_POWER, 1);
 					input_sync(ts->input_dev);
-					input_report_key(ts->input_dev, KEY_F3, 0);
+					input_report_key(ts->input_dev, KEY_POWER, 0);
 					input_sync(ts->input_dev);
 					atomic_inc(&ts->double_tap_number);
 				}
@@ -1508,9 +1508,9 @@ static void synaptics_ts_work_func(struct work_struct *work)
                 if (double_tap & 0x08)
 				{
 					print_ts(TS_INFO, KERN_INFO "draw a circle\n");
-					input_report_key(ts->input_dev, KEY_F4, 1);
+					input_report_key(ts->input_dev, KEY_GESTURE_CIRCLE, 1);
 					input_sync(ts->input_dev);
-					input_report_key(ts->input_dev, KEY_F4, 0);
+					input_report_key(ts->input_dev, KEY_GESTURE_CIRCLE, 0);
 					input_sync(ts->input_dev);
 				}
             }
@@ -1519,9 +1519,9 @@ static void synaptics_ts_work_func(struct work_struct *work)
                 if (double_tap & 0x02)
 				{
 					print_ts(TS_INFO, KERN_INFO "draw || gesture\n");
-					input_report_key(ts->input_dev, KEY_F6, 1);
+					input_report_key(ts->input_dev, KEY_GESTURE_SWIPE_DOWN, 1);
 					input_sync(ts->input_dev);
-					input_report_key(ts->input_dev, KEY_F6, 0);
+					input_report_key(ts->input_dev, KEY_GESTURE_SWIPE_DOWN, 0);
 					input_sync(ts->input_dev);
 				}
             }
@@ -1530,9 +1530,9 @@ static void synaptics_ts_work_func(struct work_struct *work)
                 if ((double_tap & 0x20) && (state[6] & 0x02))
 				{
 					print_ts(TS_INFO, KERN_INFO "draw a V gesture\n");
-					input_report_key(ts->input_dev, KEY_F5, 1);
+					input_report_key(ts->input_dev, KEY_GESTURE_V, 1);
 					input_sync(ts->input_dev);
-					input_report_key(ts->input_dev, KEY_F5, 0);
+					input_report_key(ts->input_dev, KEY_GESTURE_V, 0);
 					input_sync(ts->input_dev);
 				}
             }
@@ -1541,9 +1541,9 @@ static void synaptics_ts_work_func(struct work_struct *work)
                 if ((double_tap & 0x20) && (state[6] & 0x04))
 				{
 					print_ts(TS_INFO, KERN_INFO "draw a < gesture\n");
-					input_report_key(ts->input_dev, KEY_F7, 1);
+					input_report_key(ts->input_dev, KEY_GESTURE_LTR, 1);
 					input_sync(ts->input_dev);
-					input_report_key(ts->input_dev, KEY_F7, 0);
+					input_report_key(ts->input_dev, KEY_GESTURE_LTR, 0);
 					input_sync(ts->input_dev);
 				}
             }
@@ -1552,9 +1552,9 @@ static void synaptics_ts_work_func(struct work_struct *work)
                 if ((double_tap & 0x20) && (state[6] & 0x08))
 				{
 					print_ts(TS_INFO, KERN_INFO "draw a > gesture\n");
-					input_report_key(ts->input_dev, KEY_F8, 1);
+					input_report_key(ts->input_dev, KEY_GESTURE_GTR, 1);
 					input_sync(ts->input_dev);
-					input_report_key(ts->input_dev, KEY_F8, 0);
+					input_report_key(ts->input_dev, KEY_GESTURE_GTR, 0);
 					input_sync(ts->input_dev);
 				}
 			}
@@ -2630,15 +2630,15 @@ firmware_update:
 	set_bit(KEY_HOMEPAGE, ts->input_dev->keybit);
 
 #if SUPPORT_DOUBLE_TAP
-	set_bit(KEY_F3, ts->input_dev->keybit);
-    set_bit(KEY_F4, ts->input_dev->keybit);
-    set_bit(KEY_F5, ts->input_dev->keybit);
-    set_bit(KEY_F6, ts->input_dev->keybit);
-    set_bit(KEY_F7, ts->input_dev->keybit);
-    set_bit(KEY_F8, ts->input_dev->keybit);
+    set_bit(KEY_POWER, ts->input_dev->keybit);
+    set_bit(KEY_GESTURE_CIRCLE, ts->input_dev->keybit);
+    set_bit(KEY_GESTURE_SWIPE_DOWN, ts->input_dev->keybit);
+    set_bit(KEY_GESTURE_V, ts->input_dev->keybit);
+    set_bit(KEY_GESTURE_LTR, ts->input_dev->keybit);
+    set_bit(KEY_GESTURE_GTR, ts->input_dev->keybit);
 	atomic_set(&ts->double_tap_number, 0);
     /*ranfei modify for N1 发布会临时打开这四个开关*/
-	atomic_set(&ts->double_tap_enable, 1);   
+	atomic_set(&ts->double_tap_enable, 0);   
 //#ifdef VENDER_EDIT
 //lile@EXP.driver.touchscreen 2013-11-20 modify for set default value 0
     atomic_set(&ts->flashlight_enable, 0);
