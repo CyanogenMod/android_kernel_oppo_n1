@@ -1294,6 +1294,7 @@ static struct i2c_board_info isa1200_board_info[] __initdata = {
 };
 
 #define GPIO_TOUCH_INT  (6)
+#define GPIO_TOUCH_RST  (7)
 #define GPIO_TP_WAKEUP  (14)
 #define GPIO_TP_ID      (15)
 
@@ -1449,6 +1450,9 @@ static void touch_init_hw(void)
 				GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		gpio_tlmm_config(GPIO_CFG(GPIO_TP_ID, 0, GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(GPIO_TOUCH_RST, 0, GPIO_CFG_OUTPUT,
+				GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+		gpio_direction_output(GPIO_TOUCH_RST, 1);
 		oppo_touchscreen_power(1);
 	}
 #endif
