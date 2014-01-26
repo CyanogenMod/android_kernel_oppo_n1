@@ -148,7 +148,7 @@ date:2013-6-9
 #define CHARGER_UVP_CHECK_COUNT	3	
 #define CHARGER_OVP_VOLTAGE		5800//6800//mv
 #define CHARGER_UVP_VOLTAGE		4300//4500//mv
-#define CHARGER_VOLTAGE_READ_TIMES	2
+#define CHARGER_VOLTAGE_READ_TIMES	3
 
 #define BATTERY_OVP_CHECK_COUNT	3
 #define BATTERY_OVP_VOLTAGE		4500//mv
@@ -368,6 +368,7 @@ static bool smb358_early_suspend_status_get(struct smb358_charger *smb358_chg);/
 static void smb358_charging_current_aicl_status_set(struct smb358_charger *smb358_chg, bool val);//sjc1003
 static bool smb358_charging_current_aicl_status_get(struct smb358_charger *smb358_chg);
 static void smb358_charging_current_aicl_handle(struct smb358_charger *smb358_chg);
+static bool smb358_input_current_limit_write(struct smb358_charger *smb358_chg, u8 value);//sjc1120
 /*function declare begin*/
 
 /*for i2c data read write funcs begin*/
@@ -525,6 +526,9 @@ static bool smb358_start_charging(struct smb358_charger *smb358_chg)
 	bool ret = false;
 	int batt_vol;
 	int batt_temp;
+	int i = 0;
+	int chg_vol = 0;
+	int aicl_current = 0;
 	
 	if (CHARGER_TYPE__INVALID == smb358_charger_type_get(smb358_chg) || CHARGER_TYPE__OTG == smb358_charger_type_get(smb358_chg))//sjc1014
 		return false;
@@ -572,8 +576,118 @@ static bool smb358_start_charging(struct smb358_charger *smb358_chg)
 			smb358_charging_mode_set(smb358_chg, CHARGING_MODE__TAPER_CHG);
 	}
 
-	if (smb358_charging_current_set(smb358_chg))
-	{
+	if (smb358_charging_current_set(smb358_chg)) {
+		
+		/** sjc1120
+		*** Add begin for some Charging Pos problem:very poor in quality
+		*** Some Charging Pos or charger have voltage sags or OV pulse
+		*** when plugged into N1 and HW cannot filter the pulse.
+		***/
+		#define CHARGER_VOL_COUNTS	50
+		#define SW_AICL_THRESHOLD_MV	4400
+		if (smb358_charger_type_get(smb358_chg) == CHARGER_TYPE__DCP) {
+			if (1) {//default 300MA
+				smb358_enable_charging(smb358_chg);
+				CHG_DBG("===%s:smb358_input_current[300], default===\n", __func__);
+				msleep(10);
+				chg_vol = get_charger_voltage();
+				if (chg_vol < SW_AICL_THRESHOLD_MV) {
+					aicl_current = 300;
+					goto aicl_ok;
+				}
+			}
+			if (smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__500MA)) {
+				for (i = 0; i < CHARGER_VOL_COUNTS; i++) {
+					if (smb358_charger_type_get(smb358_chg) != CHARGER_TYPE__DCP)
+						goto aicl_err;
+					chg_vol = get_charger_voltage();
+					CHG_DBG("===%s:smb358_input_current[500], chg_vol[%d]===\n", __func__, chg_vol);
+					if (chg_vol < SW_AICL_THRESHOLD_MV) {
+						smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__300MA);
+						aicl_current = 300;
+						goto aicl_ok;
+					}
+				}
+			}
+			if (smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__700MA)) {
+				for (i = 0; i < CHARGER_VOL_COUNTS; i++) {
+					if (smb358_charger_type_get(smb358_chg) != CHARGER_TYPE__DCP)
+						goto aicl_err;
+					chg_vol = get_charger_voltage();
+					CHG_DBG("===%s:smb358_input_current[700], chg_vol[%d]===\n", __func__, chg_vol);
+					if (chg_vol < SW_AICL_THRESHOLD_MV) {
+						smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__500MA);
+						aicl_current = 500;
+						goto aicl_ok;
+					}
+				}
+			}
+			if (smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__1000MA)) {
+				for (i = 0; i < CHARGER_VOL_COUNTS; i++) {
+					if (smb358_charger_type_get(smb358_chg) != CHARGER_TYPE__DCP)
+						goto aicl_err;
+					chg_vol = get_charger_voltage();
+					CHG_DBG("===%s:smb358_input_current[1000], chg_vol[%d]===\n", __func__, chg_vol);
+					if (chg_vol < SW_AICL_THRESHOLD_MV) {
+						smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__700MA);
+						aicl_current = 700;
+						goto aicl_ok;
+					}
+				}
+			}
+			/*** We CAN NOT use this step current because of some poor/bad quality Charging Pos or chargers
+			if (smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__1200MA)) {
+				for (i = 0; i < CHARGER_VOL_COUNTS; i++) {
+					if (smb358_charger_type_get(smb358_chg) != CHARGER_TYPE__DCP)
+						goto aicl_err;
+					chg_vol = get_charger_voltage();
+					CHG_DBG("===%s:smb358_input_current[1200], chg_vol[%d]===\n", __func__, chg_vol);
+					if (chg_vol < SW_AICL_THRESHOLD_MV) {
+						smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__1000MA);
+						aicl_current = 1000;
+						goto aicl_ok;
+					}
+				}
+			}
+			***/
+			if (smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__1500MA)) {
+				for (i = 0; i < CHARGER_VOL_COUNTS; i++) {
+					if (smb358_charger_type_get(smb358_chg) != CHARGER_TYPE__DCP)
+						goto aicl_err;
+					chg_vol = get_charger_voltage();
+					CHG_DBG("===%s:smb358_input_current[1500], chg_vol[%d]===\n", __func__, chg_vol);
+					if (chg_vol < SW_AICL_THRESHOLD_MV) {
+						smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__1000MA);
+						aicl_current = 1000;
+						goto aicl_ok;
+					}
+				}
+			}
+			if (smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__1800MA)) {
+				aicl_current = 1800;
+				for (i = 0; i < CHARGER_VOL_COUNTS; i++) {
+					if (smb358_charger_type_get(smb358_chg) != CHARGER_TYPE__DCP)
+						goto aicl_err;
+					chg_vol = get_charger_voltage();
+					CHG_DBG("===%s:smb358_input_current[1800], chg_vol[%d]===\n", __func__, chg_vol);
+					if (chg_vol < SW_AICL_THRESHOLD_MV) {
+						smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__1500MA);
+						aicl_current = 1500;
+						goto aicl_ok;
+					}
+				}
+				if (!smb358_early_suspend_status_get(smb358_chg)) {
+					smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__1500MA);
+					CHG_DBG("===%s:smb358_input_current[1800], chg_vol[%d], but we use[1500] at this time===\n", __func__, chg_vol);
+				}
+			}
+			
+aicl_ok:
+			smb358_chg->aicl_result = aicl_current;
+			CHG_ERR("%s:[aicl_ok]input_cur[%d], chg_vol[%d], counts[%d]\n", __func__, aicl_current, chg_vol, i);
+		}
+		//sjc1120 add end for Charging Po:
+		
 		ret = smb358_enable_charging(smb358_chg);
 		if (ret) {
 			if (true != smb358_charging_resume_request_get(smb358_chg))//sjc0813 resume charging status
@@ -584,6 +698,9 @@ static bool smb358_start_charging(struct smb358_charger *smb358_chg)
 			smb358_charging_mode_set(smb358_chg, CHARGING_MODE__INVALID);
 		}
 	}
+	return ret;
+aicl_err://sjc1120 for Charging Po problem
+	smb358_chg->aicl_result = 0;
 	return ret;
 }
 
@@ -1228,7 +1345,7 @@ static void smb358_start_charging_work(struct work_struct *work)
 	//sjc1023 begin
 	if (charger_vol > CHARGER_OVP_VOLTAGE || charger_vol < CHARGER_UVP_VOLTAGE) {
 		while (counts < CHARGER_VOLTAGE_READ_TIMES) {
-			msleep(100);
+			msleep(30);
 			if (smb358_is_charger_in(smb358_chg)) {
 				charger_vol = get_charger_voltage();
 				if (charger_vol > CHARGER_OVP_VOLTAGE || charger_vol < CHARGER_UVP_VOLTAGE) {
@@ -1406,8 +1523,8 @@ static bool smb358_charger_ovp_check(struct smb358_charger *smb358_chg)
 	
 	if (chg_vol > CHARGER_OVP_VOLTAGE) {//sjc1023
 		while (times < CHARGER_VOLTAGE_READ_TIMES) {
-			msleep(100);
-			if (smb358_is_charger_in(the_smb358_charger)) {
+			msleep(50);
+			if (smb358_is_charger_in(smb358_chg)) {
 				chg_vol = get_charger_voltage();
 				if (chg_vol > CHARGER_OVP_VOLTAGE) {
 					times++;
@@ -1454,8 +1571,8 @@ static bool smb358_charger_uvp_check(struct smb358_charger *smb358_chg)
 
 	if (chg_vol < CHARGER_UVP_VOLTAGE) {//sjc1023
 		while (times < CHARGER_VOLTAGE_READ_TIMES) {
-			msleep(100);
-			if (smb358_is_charger_in(the_smb358_charger)) {
+			msleep(50);
+			if (smb358_is_charger_in(smb358_chg)) {
 				chg_vol = get_charger_voltage();
 				if (chg_vol < CHARGER_UVP_VOLTAGE) {
 					times++;
@@ -3536,7 +3653,7 @@ static bool smb358_float_voltage_write(struct smb358_charger *smb358_chg, int fl
 static bool smb358_input_current_limit_write(struct smb358_charger *smb358_chg,  u8 value)
 {
 	bool ret = false;
-	if (value <= 0)
+	if (value < 0)
 		value = MAX_CHG_CURRENT__500MA;
 	if (value > MAX_CHG_CURRENT__2000MA)
 		value = MAX_CHG_CURRENT__2000MA;
@@ -3550,6 +3667,8 @@ static bool smb358_input_current_limit_write(struct smb358_charger *smb358_chg, 
 
 static bool smb358_input_current_limit_standard_set(struct smb358_charger *smb358_chg)
 {
+	return smb358_input_current_limit_write(smb358_chg, MAX_CHG_CURRENT__300MA);//sjc1120 for Charging Po problem
+
 	if (!smb358_early_suspend_status_get(smb358_chg))//sjc0927
 		return smb358_input_current_limit_write(smb358_chg, MAX_INPUT_CURRENT_LIMIT__STANDARD_SUS);
 	return smb358_input_current_limit_write(smb358_chg, MAX_INPUT_CURRENT_LIMIT__STANDARD);//sjc0927//MAX_CHG_CURRENT__2000MA);
@@ -3626,9 +3745,9 @@ static bool smb358_hardware_init(struct smb358_charger *smb358_chg)
 		CHG_ERR("%s:set input current limit failed\n", __func__);
 	}
 /* 0x02h: Various functions*/
-	value = SUSPEND_ON_OFF_CONTROL__BY_REGISTER;//sjc0806
+	value = SUSPEND_ON_OFF_CONTROL__BY_REGISTER | AUTO_INPUT_CURRENT_LIMINT_CONTROL__DISABLE;//sjc0806//sjc1120 disable for Charging Po problem
 	rc = smb358_register_masked_write(smb358_chg->client, VARIOUS_FUNCTIONS_REGISTER_ADDR,
-		SUSPEND_ON_OFF_CONTROL__MASK , value);
+		SUSPEND_ON_OFF_CONTROL__MASK | AUTO_INPUT_CURRENT_LIMIT_CONTROL__MASK, value);
 	if (false == rc){
 		CHG_ERR("%s: set suspend register control failed\n", __func__);
 	}
@@ -4437,10 +4556,11 @@ static void smb358_early_suspend(struct early_suspend *handler)
 	CHG_DBG("%s\n", __func__);
 	if (smb358_chg) {
 		smb358_chg->early_suspend_status = true;
-		if (CHARGER_TYPE__DCP == smb358_charger_type_get(smb358_chg) && smb358_chg->aicl_result > 1100) {//sjc1010 only use in charger>1.1A
+		if (CHARGER_TYPE__DCP == smb358_charger_type_get(smb358_chg) && smb358_chg->aicl_result > 1500) {//sjc1010 only use in charger>1.5A
 			if (!smb358_input_current_limit_write(smb358_chg, MAX_INPUT_CURRENT_LIMIT__STANDARD)) {
 				CHG_ERR("%s:input current limit write failed\n", __func__);
 			} else {
+				/*** sjc1120 Charging Po problem
 				if (smb358_register_masked_write(smb358_chg->client, VARIOUS_FUNCTIONS_REGISTER_ADDR,
 						AUTO_INPUT_CURRENT_LIMIT_CONTROL__MASK, AUTO_INPUT_CURRENT_LIMINT_CONTROL__DISABLE)) {
 					if (!smb358_register_masked_write(smb358_chg->client, VARIOUS_FUNCTIONS_REGISTER_ADDR,
@@ -4449,6 +4569,7 @@ static void smb358_early_suspend(struct early_suspend *handler)
 				} else {
 					CHG_ERR("%s:disable failed\n", __func__);
 				}
+				***/
 			}
 		}
 	}
@@ -4461,7 +4582,7 @@ static void smb358_late_resume(struct early_suspend *handler)
 	CHG_DBG("%s\n", __func__);
 	if (smb358_chg) {
 		smb358_chg->early_suspend_status = false;
-		if (CHARGER_TYPE__DCP == smb358_charger_type_get(smb358_chg) && smb358_chg->aicl_result > 1100) {//sjc1010 only use in charger>1.1A
+		if (CHARGER_TYPE__DCP == smb358_charger_type_get(smb358_chg) && smb358_chg->aicl_result > 1500) {//sjc1010 only use in charger>1.5A
 			if (!smb358_input_current_limit_write(smb358_chg, MAX_INPUT_CURRENT_LIMIT__STANDARD_SUS))
 				CHG_ERR("%s:input current limit write failed\n", __func__);
 		}
@@ -4589,6 +4710,8 @@ static void smb358_aicl_handle(struct smb358_charger *smb358_chg)
 	bool aicl_now = false;
 	int aicl_result = 0;
 	//int aicl_set = 0;
+
+	return;//sjc1120 Charging Po problem
 	
 	if (smb358_charger_type_get(smb358_chg) != CHARGER_TYPE__DCP)
 		return;

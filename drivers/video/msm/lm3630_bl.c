@@ -162,6 +162,16 @@ int set_backlight_pwm(int state)
 {
     int rc = 0;
 
+/* OPPO 2013-12-14 gousj Add begin for NULL pointer panic */
+#ifdef CONFIG_VENDOR_EDIT
+	if (!lm3630_client)
+    {
+        pr_err("%s: lm3630_client == null!\n", __func__);
+        return rc;
+    }
+#endif
+/* OPPO 2013-12-14 gousj Add end */
+
     if(state == 1)
     {
         if(lm3630_bkl_readout()>20)

@@ -74,7 +74,7 @@ static int __init mipi_cmd_orise_720p_pt_init(void)
 	pinfo.mipi.esc_byte_ratio = 4;
 	pinfo.lcd.vsync_enable = TRUE;
 	pinfo.lcd.hw_vsync_mode = TRUE;
-	pinfo.lcd.refx100 = 6300; /* adjust refx100 to prevent tearing */
+	pinfo.lcd.refx100 = 6400; /* adjust refx100 to prevent tearing */
 	//pinfo.lcd.refx100 = 6204;
 	//pinfo.lcd.refx100 = 6105;
 	//pinfo.lcd.refx100 = 6205;

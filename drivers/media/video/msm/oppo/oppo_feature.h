@@ -53,14 +53,15 @@ struct frame_info_t
 	bool start_moving;
 	bool has_faces;
 	m9mo_ae_mode ae_mode;
+	bool sport_enable;
 };
 
 #define WDV_CAF_LOW_THR 				(2300)
-#define ANTI_WDV_SHAKE_DELAY 			(15)
+#define ANTI_WDV_SHAKE_DELAY 			(30)
 #define DO_AF_DELAY 					(0)
 
 #define CAM_START_DELAY_FRAME			(6)
-#define WD_VALID_DELAY_FRAME			(30)
+#define WD_VALID_DELAY_FRAME			(10)
 #define CAP_DELAY_FRAME					(20)
 #define SINGLE_FOCUS_DETECT_FRAME		(30)
 
