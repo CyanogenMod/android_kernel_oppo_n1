@@ -201,7 +201,7 @@ static char tear_scan[3] =
 {
     0x44,   //TE scan line
     0x00,
-    0x01
+    0xc8
 };
 
 static char nvm_black[5] =

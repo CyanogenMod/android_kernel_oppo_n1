@@ -1365,7 +1365,7 @@ static int oppo_touchpad_power(int on) {
 	int rc = 0;
 
 	if ((get_pcb_version() >= PCB_VERSION_EVT3_N1T)
-			&& (get_pcb_version() <= PCB_VERSION_PVT_N1T)) {
+			&& (get_pcb_version() <= PCB_VERSION_PVT_N1W)) {
 		mutex_lock(&TP_BK_POWER_LOCK);
 		if(vreg_tp_1P8V == NULL) {
 			vreg_tp_1P8V = regulator_get(NULL, "8921_l21");

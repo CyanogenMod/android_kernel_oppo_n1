@@ -8033,6 +8033,7 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 	/*OPPO 2013-09-02 zhzhyon Add for reason*/
 	int pt_hph_cnt = 0;
 	int headp_count = 0;
+	int invalid_count = 0;
 	/*OPPO 2013-09-02 zhzhyon Add end*/
 	bool correction = false;
 	enum tabla_mbhc_plug_type plug_type = PLUG_TYPE_INVALID;
@@ -8079,6 +8080,22 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 			 __func__, retry, tabla->current_plug, plug_type);
 		if (plug_type == PLUG_TYPE_INVALID) {
 			pr_debug("Invalid plug in attempt # %d\n", retry);
+			/*OPPO 2013-12-05 zhzhyon Add for reason*/
+			invalid_count++;
+			if((get_pcb_version() >= PCB_VERSION_EVT3_N1F) && (invalid_count == 3))
+			{
+				printk(KERN_INFO "invalid headset will be American headset\n");
+				TABLA_ACQUIRE_LOCK(tabla->codec_resource_lock);
+				/* Turn off override */
+				tabla_turn_onoff_override(codec, false);
+				tabla_find_plug_and_report(codec, PLUG_TYPE_GND_MIC_SWAP);
+				TABLA_RELEASE_LOCK(tabla->codec_resource_lock);
+
+				correction = true;
+				break;
+
+			}
+			/*OPPO 2013-12-05 zhzhyon Add end*/
 			if (!tabla->mbhc_cfg.detect_extn_cable &&
 			    retry == NUM_ATTEMPTS_TO_REPORT &&
 			    tabla->current_plug == PLUG_TYPE_NONE) {
@@ -8127,7 +8144,7 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 		{
 			 /*OPPO 2013-10-16 zhzhyon Add for reason*/
 			 pt_hph_cnt = pt_hph_cnt + 1;
-			 if(get_pcb_version() >= PCB_VERSION_EVT3_N1T)
+			 if(get_pcb_version() >= PCB_VERSION_EVT3_N1F)
 			 {
 			 	if(pt_hph_cnt == 4)
 			 	{
@@ -8151,12 +8168,6 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 					continue;
 				}
 				
-			 }
-			 else if((get_pcb_version() >= PCB_VERSION_EVT_N1F) && 
-						(get_pcb_version() <= PCB_VERSION_PVT_N1F))
-			 {
-			 	//headset antenna 
-			 	continue;
 			 }
 			 /*OPPO 2013-10-16 zhzhyon Add end*/
 			 

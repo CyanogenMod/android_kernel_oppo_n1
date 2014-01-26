@@ -113,6 +113,13 @@ static bool m9mo_check_if_do_caf(struct frame_info_t *frame_info, u_int32_t mode
 				moving = true;
 				frame_info->start_moving = false;
 			}
+
+			/*if sport mode*/
+			if (frame_info->sport_enable)
+			{
+				result = true;
+				m9mo_caf_debug("%s: Now is in sport mode \r\n", __func__);
+			}
 			break;
         }
         case STABLE_CASE:
@@ -166,15 +173,21 @@ static bool m9mo_check_if_do_caf(struct frame_info_t *frame_info, u_int32_t mode
 			
 			if (frame_info->caf_result == FORCE_CAF_START)
 			{
-				if (moving)
+				if (moving && frame_info->sport_enable)
 				{
 					m9mo_caf_debug("moving trigger----phone stop moving, can do focus now \r\n");
 					result = true;
+					frame_info->sport_enable = false;
 					moving = false;
 				}
 				else
 				{
 					result = false;
+					if (!frame_info->sport_enable)
+					{
+						m9mo_caf_debug("%s: sport mode back to normal mode \r\n", __func__);
+						result = true;
+					}
 				}
 			}
 			else
@@ -293,7 +306,8 @@ static void m9mo_do_caf(struct msm_sensor_ctrl_t *s_ctrl,
 			if (m9mo_detect_caf_first_focus(frame_info) && 
 				frame_info->focus_done)
 			{
-				caf_i->notify(s_ctrl, 0);
+				if (caf_i->notify)
+					caf_i->notify(s_ctrl, 0);
 				detect_after_delay = false;
 				caf_start = false;
 				caf_flag = false;
@@ -308,7 +322,8 @@ static void m9mo_do_caf(struct msm_sensor_ctrl_t *s_ctrl,
 			if (m9mo_detect_caf_first_focus(frame_info) && 
 				frame_info->focus_done)
 			{
-				caf_i->notify(s_ctrl, 0);
+				if (caf_i->notify)
+					caf_i->notify(s_ctrl, 0);
 				frame_info->capture_start = false;
 				caf_start = false;
 				caf_flag = false;
@@ -346,7 +361,8 @@ static void m9mo_do_caf(struct msm_sensor_ctrl_t *s_ctrl,
 				m9mo_check_if_do_caf(frame_info, STABLE_CASE) &&
 				frame_info->focus_done) 
 			{
-				caf_i->notify(s_ctrl, 0);
+				if (caf_i->notify)
+					caf_i->notify(s_ctrl, 0);
 				caf_flag = false;
 				shake_delay_frames = ANTI_WDV_SHAKE_DELAY;
 			}	
@@ -356,10 +372,14 @@ static void m9mo_do_caf(struct msm_sensor_ctrl_t *s_ctrl,
 		if(shake_delay_frames > 0)
 		{
 			shake_delay_frames--;
+			if (frame_info->caf_result == FORCE_CAF_STOP)
+				caf_start = false;
+			frame_info->sport_enable = false;
 		} 
 		else if(shake_delay_frames == 0)
 		{
 			caf_start = false;
+			frame_info->sport_enable = false;
 			shake_delay_frames--;
 		}
 	}while (0);

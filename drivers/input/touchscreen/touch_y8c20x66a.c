@@ -34,6 +34,8 @@
 ** ranfei@OnlineRD.Driver.TouchSCreen   2013/10/28   1.5        在检测到大面积的时候压力上报0，减少误操作
 ** ranfei@OnlineRD.Driver.TouchSCreen   2013/11/15   1.6        增加设备厂家信息
 ** ranfei@OnlineRD.Driver.TouchSCreen   2013/11/19   1.7        modify the /proc/devinfo/back_tp version info
+** ranfei@OnlineRD.Driver.TouchSCreen   2013/12/14   1.8        modify line:328, the down() and up() does not
+                                                                come in pairs, it maybe block the thread.
 ** ------------------------------------------------------------------------------
 ** 
 ************************************************************************************/
@@ -324,7 +326,7 @@ static void y8c20x66a_ts_work_func(struct work_struct *work)
 /* OPPO 2013-09-09 ranfei Add begin for reason */
     if(readI2C(0x06, &buffer, 1) != 1) {
         printk(KERN_ERR "read cypress device id faild\n");
-        return;
+        goto work_func_end;
     }
 /* OPPO 2013-09-09 ranfei Add end */
    
