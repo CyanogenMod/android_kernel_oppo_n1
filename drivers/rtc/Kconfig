@@ -1178,9 +1178,4 @@ config RTC_DRV_QPNP
 	  To compile this driver as a module, choose M here: the
 	  module will be called qpnp-rtc.
 
-config OPPO_OFFMODE_ALARM
-	boolean "Oppo offmode alarm"
-	help
-	  Say Y here if you want to allow RTC alarm to wake the device.
-
 endif # RTC_CLASS

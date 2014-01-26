@@ -236,43 +236,6 @@ pm8xxx_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 	struct pm8xxx_rtc *rtc_dd = dev_get_drvdata(dev);
 	struct rtc_time rtc_tm;
 
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	/*
-	 * Open a door to clear alarm register since the boot alarm may
-	 * becomes corrupt. mwalker
-	 */
-	memset(&rtc_tm, 0, sizeof(rtc_tm));
-	if (unlikely(!memcmp(&alarm->time, &rtc_tm, sizeof(rtc_tm)))) {
-		pr_debug("%s clear pm8058 alarm register\n", __func__);
-
-		secs = 0;
-	} else {
-		/* Check if the alarm is valid */
-		rc = rtc_valid_tm(&alarm->time);
-		if (rc < 0) {
-			pr_err("%s: Alarm time invalid\n", __func__);
-			return -EINVAL;
-		}
-
-		rtc_tm_to_time(&alarm->time, &secs);
-
-		/*
-		 * Read the current RTC time and verify if the alarm time is in the
-		 * past. If yes, return invalid.
-		 */
-		rc = pm8xxx_rtc_read_time(dev, &rtc_tm);
-		if (rc < 0) {
-			dev_err(dev, "Unamble to read RTC time\n");
-			return -EINVAL;
-		}
-
-		rtc_tm_to_time(&rtc_tm, &secs_rtc);
-		if (secs < secs_rtc) {
-			dev_err(dev, "Trying to set alarm in the past\n");
-			return -EINVAL;
-		}
-	}
-#else
 	rtc_tm_to_time(&alarm->time, &secs);
 
 	/*
@@ -290,7 +253,6 @@ pm8xxx_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		dev_err(dev, "Trying to set alarm in the past\n");
 		return -EINVAL;
 	}
-#endif /* CONFIG_OPPO_OFFMODE_ALARM */
 
 	value[0] = secs & 0xFF;
 	value[1] = (secs >> 8) & 0xFF;

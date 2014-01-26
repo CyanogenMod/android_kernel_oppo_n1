@@ -25,10 +25,6 @@
 
 #include <asm/mach/time.h>
 
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-#include <linux/slab.h>
-#endif
-
 #define ANDROID_ALARM_PRINT_ERROR (1U << 0)
 #define ANDROID_ALARM_PRINT_INIT_STATUS (1U << 1)
 #define ANDROID_ALARM_PRINT_TSET (1U << 2)
@@ -48,16 +44,9 @@ module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 		} \
 	} while (0)
 
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-#define ANDROID_ALARM_WAKEUP_MASK ( \
-	ANDROID_ALARM_RTC_WAKEUP_MASK | \
-	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK | \
-	ANDROID_ALARM_RTC_POWERUP)
-#else
 #define ANDROID_ALARM_WAKEUP_MASK ( \
 	ANDROID_ALARM_RTC_WAKEUP_MASK | \
 	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK)
-#endif
 
 /* support old usespace code */
 #define ANDROID_ALARM_SET_OLD               _IOW('a', 2, time_t) /* set alarm */
@@ -80,104 +69,11 @@ static struct platform_device *alarm_platform_dev;
 struct alarm_queue alarms[ANDROID_ALARM_TYPE_COUNT];
 static bool suspended;
 
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-enum RTC_CMD {
-	RTC_CMD_CLEAR = 0x61,
-	RTC_CMD_UPDATE,
-};
-
-struct rtc_cmd {
-	struct list_head node;
-	unsigned int cmd;
-	struct timespec time;
-};
-
-struct rtc_alarm_work {
-	struct list_head cmd_list;
-	struct work_struct alarm_task;
-	struct mutex mutex;
-	spinlock_t slock;
-	bool active;
-};
-
-#define DEBUG_PRINT_TIME
-
-static struct rtc_alarm_work rtc_work;
-static int rtc_alarm_update(struct timespec *alarm);
-static void rtc_alarm_clear(void);
-
-static void rtc_task(struct work_struct *work)
-{
-	unsigned long flags;
-	struct rtc_cmd *cmd;
-	struct list_head *list_pos, *list_pos_tmp;
-	struct rtc_alarm_work *rwork =
-		container_of(work, struct rtc_alarm_work, alarm_task);
-
-	pr_alarm(FLOW, "handle rtc task...\n");
-	if (!rwork->active) {
-		pr_alarm(FLOW, "rtc_alarm_work is unactive\n");
-		return;
-	}
-
-	/* We want to keep the cmd order and so the follow code is non-reentrant. */
-	mutex_lock(&rwork->mutex);
-	while(1) {
-		cmd = NULL;
-
-		spin_lock_irqsave(&rwork->slock, flags);
-		if (list_empty(&rwork->cmd_list)) {
-			spin_unlock_irqrestore(&rwork->slock, flags);
-			pr_alarm(FLOW, "no rtc task in queue any more\n");
-			break;
-		}
-
-		list_for_each_safe(list_pos, list_pos_tmp, &rwork->cmd_list) {
-			cmd = list_entry(list_pos, struct rtc_cmd, node);
-
-			if (list_is_last(list_pos, &rwork->cmd_list)) {
-				list_del(list_pos);
-				break;
-			}
-			list_del(list_pos);
-			kzfree(cmd);
-		}
-		spin_unlock_irqrestore(&rwork->slock, flags);
-
-		if (cmd == NULL) continue;
-
-		pr_alarm(FLOW, "rtc cmd: 0x%x\n", cmd->cmd);
-		switch (cmd->cmd) {
-		case RTC_CMD_UPDATE:
-			rtc_alarm_update(&cmd->time);
-			break;
-		case RTC_CMD_CLEAR:
-			rtc_alarm_clear();
-			break;
-		}
-
-		kzfree(cmd);
-		cmd = NULL;
-	}
-	mutex_unlock(&rwork->mutex);
-
-}
-#endif
-
 static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 {
 	struct alarm *alarm;
-
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	unsigned long flags;
-	struct rtc_cmd *cmd;
-	bool is_wakeup = base == &alarms[ANDROID_ALARM_RTC_WAKEUP] ||
-			base == &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP] ||
-			base == &alarms[ANDROID_ALARM_RTC_POWERUP];
-#else
 	bool is_wakeup = base == &alarms[ANDROID_ALARM_RTC_WAKEUP] ||
 			base == &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP];
-#endif
 
 	if (base->stopped) {
 		pr_alarm(FLOW, "changed alarm while setting the wall time\n");
@@ -187,26 +83,8 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 	if (is_wakeup && !suspended && head_removed)
 		wake_unlock(&alarm_rtc_wake_lock);
 
-	if (!base->first) {
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-		/* There is no more alarm */
-		if (base == &alarms[ANDROID_ALARM_RTC_POWERUP]) {
-			spin_lock_irqsave(&rtc_work.slock, flags);
-			cmd = (struct rtc_cmd*)kzalloc(sizeof(*cmd), GFP_ATOMIC);
-			if (cmd != NULL) {
-				cmd->cmd = RTC_CMD_CLEAR;
-				list_add_tail(&cmd->node, &rtc_work.cmd_list);
-			}
-			spin_unlock_irqrestore(&rtc_work.slock, flags);
-
-			pr_alarm(FLOW, "schedule rtc alarm clear task\n");
-			if (0 == schedule_work(&rtc_work.alarm_task)) {
-				pr_alarm(FLOW, "alarm clear task is in queue\n");
-			}
-		}
-#endif
+	if (!base->first)
 		return;
-	}
 
 	alarm = container_of(base->first, struct alarm, node);
 
@@ -223,24 +101,6 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 	base->timer.node.expires = ktime_add(base->delta, alarm->expires);
 	base->timer._softexpires = ktime_add(base->delta, alarm->softexpires);
 	hrtimer_start_expires(&base->timer, HRTIMER_MODE_ABS);
-
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	if (alarm->type == ANDROID_ALARM_RTC_POWERUP) {
-		spin_lock_irqsave(&rtc_work.slock, flags);
-		cmd = (struct rtc_cmd*)kzalloc(sizeof(*cmd), GFP_ATOMIC);
-		if (cmd != NULL) {
-			cmd->cmd = RTC_CMD_UPDATE;
-			cmd->time = ktime_to_timespec(hrtimer_get_expires(&base->timer));
-			list_add_tail(&cmd->node, &rtc_work.cmd_list);
-		}
-		spin_unlock_irqrestore(&rtc_work.slock, flags);
-
-		pr_alarm(FLOW, "schedule rtc alarm update task\n");
-		if (0 == schedule_work(&rtc_work.alarm_task)) {
-			pr_alarm(FLOW, "alarm update task is in queue\n");
-		}
-	}
-#endif
 }
 
 static void alarm_enqueue_locked(struct alarm *alarm)
@@ -379,126 +239,6 @@ int alarm_cancel(struct alarm *alarm)
 	}
 }
 
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-#ifdef DEBUG_PRINT_TIME
-/**
- * print_rtc_time - print time in struct rtc_time as man readable
- * @purpose mwalker to debug
- */
-static void inline print_rtc_time(struct rtc_time *rt)
-{
-	pr_alarm(FLOW, "\t--> hh:mm:ss = %02d:%02d:%02d mm/dd/yyyy = %02d/%02d/%04d\n",
-		rt->tm_hour, rt->tm_min,
-		rt->tm_sec, rt->tm_mon + 1,
-		rt->tm_mday, rt->tm_year + 1900);
-}
-#endif
-
-/**
- * rtc_alarm_update - update alarm time in rtc
- * @author mwalker
- */
-static int rtc_alarm_update(struct timespec *alarm)
-{
-	int ret = 0;
-	struct rtc_wkalrm   rtc_alarm;
-	struct rtc_time     rtc_current_rtc_time;
-	unsigned long       rtc_current_time;
-	unsigned long       rtc_alarm_time;
-	struct timespec     rtc_delta;
-	struct timespec     wall_time;
-
-	wake_lock(&alarm_rtc_wake_lock);
-	ret = rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
-	if (ret < 0) {
-		pr_alarm(ERROR, "%s: Failed to read RTC time\n", __func__);
-		goto err;
-	}
-
-	getnstimeofday(&wall_time);
-	rtc_tm_to_time(&rtc_current_rtc_time, &rtc_current_time);
-	set_normalized_timespec(&rtc_delta,
-				wall_time.tv_sec - rtc_current_time,
-				wall_time.tv_nsec);
-
-	rtc_alarm_time = timespec_sub(*alarm, rtc_delta).tv_sec;
-
-	rtc_time_to_tm(rtc_alarm_time, &rtc_alarm.time);
-	rtc_alarm.enabled = 1;
-
-	ret = rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
-	if (ret < 0) {
-		pr_alarm(ERROR, "%s: Failed to set rtc alarm\n", __func__);
-		goto err;
-	}
-
-#ifdef DEBUG_PRINT_TIME
-	pr_alarm(FLOW, "%s, new rtc alarm time set from: ", __func__);
-	print_rtc_time(&rtc_current_rtc_time);
-	pr_alarm(FLOW, "to: ");
-	print_rtc_time(&rtc_alarm.time);
-#endif
-
-	wake_unlock(&alarm_rtc_wake_lock);
-	return 0;
-
-err:
-	pr_alarm(ERROR, "%s: rtc alarm will lost!", __func__);
-	wake_unlock(&alarm_rtc_wake_lock);
-	return -1;
-}
-
-//#ifdef CONFIG_OPPO_MODIFY
-//use to get rtc times for other driver
-int msmrtc_alarm_read_time(struct rtc_time *tm)
-{
-	int ret=0;
-
-	wake_lock(&alarm_rtc_wake_lock);
-	ret = rtc_read_time(alarm_rtc_dev, tm);
-	if (ret < 0) {
-		pr_alarm(ERROR, "%s: Failed to read RTC time\n", __func__);
-		goto err;
-	}
-
-	wake_unlock(&alarm_rtc_wake_lock);
-	return 0;
-err:
-	pr_alarm(ERROR, "%s: rtc alarm will lost!", __func__);
-	wake_unlock(&alarm_rtc_wake_lock);
-	return -1;
-
-}
-EXPORT_SYMBOL(msmrtc_alarm_read_time);
-//#endif
-
-/**
- * rtc_alarm_clear - clear alarm in rtc register.
- * @author mwalker
- */
-static void rtc_alarm_clear(void)
-{
-	int ret;
-	struct rtc_wkalrm rtc_wkalrm_time;
-
-	//pr_alarm(FLOW, "%s\n", __func__);
-
-	wake_lock(&alarm_rtc_wake_lock);
-
-	ret	= rtc_alarm_irq_enable(alarm_rtc_dev, 0);
-	if (ret < 0)
-		pr_alarm(ERROR, "Disable rtc alarm irq failed!\n");
-
-	memset(&rtc_wkalrm_time, 0, sizeof(rtc_wkalrm_time));
-	ret = rtc_set_alarm(alarm_rtc_dev, &rtc_wkalrm_time);
-	if (ret < 0)
-		pr_alarm(ERROR, "%s(ret %d): "
-			"Failed to clear powerup alarm\n", __func__, ret);
-
-	wake_unlock(&alarm_rtc_wake_lock);
-}
-#endif /* CONFIG_OPPO_OFFMODE_ALARM */
-
 /**
  * alarm_set_rtc - set the kernel and rtc walltime
  * @new_time:	timespec value containing the new time
@@ -529,11 +269,6 @@ int alarm_set_rtc(struct timespec new_time)
 		alarms[i].stopped = true;
 		alarms[i].stopped_time = timespec_to_ktime(tmp_time);
 	}
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	hrtimer_try_to_cancel(&alarms[ANDROID_ALARM_RTC_POWERUP].timer);
-	alarms[ANDROID_ALARM_RTC_POWERUP].stopped = true;
-	alarms[ANDROID_ALARM_RTC_POWERUP].stopped_time = timespec_to_ktime(tmp_time);
-#endif
 	alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].delta =
 		alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta =
 		ktime_sub(alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta,
@@ -545,10 +280,6 @@ int alarm_set_rtc(struct timespec new_time)
 		alarms[i].stopped = false;
 		update_timer_locked(&alarms[i], false);
 	}
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	alarms[ANDROID_ALARM_RTC_POWERUP].stopped = false;
-	update_timer_locked(&alarms[ANDROID_ALARM_RTC_POWERUP], false);
-#endif
 	spin_unlock_irqrestore(&alarm_slock, flags);
 	if (ret < 0) {
 		pr_alarm(ERROR, "alarm_set_rtc: Failed to set time\n");
@@ -582,11 +313,6 @@ alarm_update_timedelta(struct timespec tmp_time, struct timespec new_time)
 		alarms[i].stopped = true;
 		alarms[i].stopped_time = timespec_to_ktime(tmp_time);
 	}
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	hrtimer_try_to_cancel(&alarms[ANDROID_ALARM_RTC_POWERUP].timer);
-	alarms[ANDROID_ALARM_RTC_POWERUP].stopped = true;
-	alarms[ANDROID_ALARM_RTC_POWERUP].stopped_time = timespec_to_ktime(tmp_time);
-#endif
 	alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].delta =
 		alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta =
 		ktime_sub(alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta,
@@ -595,10 +321,6 @@ alarm_update_timedelta(struct timespec tmp_time, struct timespec new_time)
 		alarms[i].stopped = false;
 		update_timer_locked(&alarms[i], false);
 	}
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	alarms[ANDROID_ALARM_RTC_POWERUP].stopped = false;
-	update_timer_locked(&alarms[ANDROID_ALARM_RTC_POWERUP], false);
-#endif
 	spin_unlock_irqrestore(&alarm_slock, flags);
 }
 
@@ -619,6 +341,24 @@ ktime_t alarm_get_elapsed_realtime(void)
 	spin_unlock_irqrestore(&alarm_slock, flags);
 	return now;
 }
+
+#ifdef CONFIG_MACH_OPPO
+int
+alarm_read_rtc_time(struct rtc_time *tm)
+{
+	int ret = 0;
+
+	wake_lock(&alarm_rtc_wake_lock);
+	ret = rtc_read_time(alarm_rtc_dev, tm);
+	if (ret < 0) {
+		pr_alarm(ERROR, "%s: Failed to read RTC time", __func__);
+	}
+
+	wake_unlock(&alarm_rtc_wake_lock);
+	return ret;
+}
+EXPORT_SYMBOL(alarm_read_rtc_time);
+#endif
 
 static enum hrtimer_restart alarm_timer_triggered(struct hrtimer *timer)
 {
@@ -693,9 +433,6 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 	hrtimer_cancel(&alarms[ANDROID_ALARM_RTC_WAKEUP].timer);
 	hrtimer_cancel(&alarms[
 			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].timer);
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	hrtimer_cancel(&alarms[ANDROID_ALARM_RTC_POWERUP].timer); /* mwalker */
-#endif
 
 	tmp_queue = &alarms[ANDROID_ALARM_RTC_WAKEUP];
 	if (tmp_queue->first)
@@ -705,15 +442,6 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 				hrtimer_get_expires(&tmp_queue->timer).tv64 <
 				hrtimer_get_expires(&wakeup_queue->timer).tv64))
 		wakeup_queue = tmp_queue;
-
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	tmp_queue = &alarms[ANDROID_ALARM_RTC_POWERUP];
-	if (tmp_queue->first && (!wakeup_queue ||
-				hrtimer_get_expires(&tmp_queue->timer).tv64 <
-				hrtimer_get_expires(&wakeup_queue->timer).tv64))
-		wakeup_queue = tmp_queue;
-#endif
-
 	if (wakeup_queue) {
 		rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
 		getnstimeofday(&wall_time);
@@ -748,10 +476,6 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 									false);
 			update_timer_locked(&alarms[
 				ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP], false);
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-			update_timer_locked(&alarms[ANDROID_ALARM_RTC_POWERUP],
-									false);
-#endif
 			err = -EBUSY;
 			spin_unlock_irqrestore(&alarm_slock, flags);
 		}
@@ -775,10 +499,6 @@ static int alarm_resume(struct platform_device *pdev)
 	update_timer_locked(&alarms[ANDROID_ALARM_RTC_WAKEUP], false);
 	update_timer_locked(&alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP],
 									false);
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	update_timer_locked(&alarms[ANDROID_ALARM_RTC_POWERUP], false); /* mwalker */
-#endif
-
 	spin_unlock_irqrestore(&alarm_slock, flags);
 
 	return 0;
@@ -814,10 +534,6 @@ static int rtc_alarm_add_device(struct device *dev,
 	pr_alarm(INIT_STATUS, "using rtc device, %s, for alarms", rtc->name);
 	mutex_unlock(&alarm_setrtc_mutex);
 
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	rtc_work.active = true;
-#endif
-
 	return 0;
 
 err3:
@@ -832,11 +548,6 @@ static void rtc_alarm_remove_device(struct device *dev,
 				    struct class_interface *class_intf)
 {
 	if (dev == &alarm_rtc_dev->dev) {
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-		rtc_work.active = false;
-		cancel_work_sync(&rtc_work.alarm_task);
-#endif
-
 		pr_alarm(INIT_STATUS, "lost rtc device for alarms");
 		rtc_irq_unregister(alarm_rtc_dev, &alarm_rtc_task);
 		platform_device_unregister(alarm_platform_dev);
@@ -888,11 +599,6 @@ static int __init alarm_driver_init(void)
 				CLOCK_REALTIME, HRTIMER_MODE_ABS);
 		alarms[i].timer.function = alarm_timer_triggered;
 	}
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	hrtimer_init(&alarms[ANDROID_ALARM_RTC_POWERUP].timer,
-				CLOCK_REALTIME, HRTIMER_MODE_ABS);
-	alarms[ANDROID_ALARM_RTC_POWERUP].timer.function = alarm_timer_triggered;
-#endif
 	hrtimer_init(&alarms[ANDROID_ALARM_SYSTEMTIME].timer,
 		     CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
 	alarms[ANDROID_ALARM_SYSTEMTIME].timer.function = alarm_timer_triggered;
@@ -900,14 +606,6 @@ static int __init alarm_driver_init(void)
 	if (err < 0)
 		goto err1;
 	wake_lock_init(&alarm_rtc_wake_lock, WAKE_LOCK_SUSPEND, "alarm_rtc");
-
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	INIT_LIST_HEAD(&rtc_work.cmd_list);
-	INIT_WORK(&rtc_work.alarm_task, rtc_task);
-	mutex_init(&rtc_work.mutex);
-	spin_lock_init(&rtc_work.slock);
-#endif
-
 	rtc_alarm_interface.class = rtc_class;
 	err = class_interface_register(&rtc_alarm_interface);
 	if (err < 0)
@@ -924,25 +622,6 @@ err1:
 
 static void  __exit alarm_exit(void)
 {
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	unsigned long flags;
-	struct rtc_cmd *cmd;
-	struct list_head *list_pos, *list_pos_tmp;
-
-	rtc_work.active = false;
-	cancel_work_sync(&rtc_work.alarm_task);
-
-	spin_lock_irqsave(&rtc_work.slock, flags);
-	list_for_each_safe(list_pos, list_pos_tmp, &rtc_work.cmd_list) {
-		cmd = list_entry(list_pos, struct rtc_cmd, node);
-		list_del(list_pos);
-		kzfree(cmd);
-	}
-	spin_unlock_irqrestore(&rtc_work.slock, flags);
-
-	mutex_destroy(&rtc_work.mutex);
-#endif
-
 	class_interface_unregister(&rtc_alarm_interface);
 	wake_lock_destroy(&alarm_rtc_wake_lock);
 	platform_driver_unregister(&alarm_driver);

@@ -26,9 +26,6 @@ enum android_alarm_type {
 	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
 	ANDROID_ALARM_ELAPSED_REALTIME,
 	ANDROID_ALARM_SYSTEMTIME,
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	ANDROID_ALARM_RTC_POWERUP,
-#endif
 
 	ANDROID_ALARM_TYPE_COUNT,
 
@@ -79,12 +76,6 @@ ktime_t alarm_get_elapsed_realtime(void);
 int alarm_set_rtc(const struct timespec ts);
 void alarm_update_timedelta(struct timespec tv, struct timespec ts);
 
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-int alarm_rtc_powerup_get(struct timespec *up_time);
-int alarm_rtc_powerup_set(struct timespec *up_time);
-void alarm_rtc_powerup_clear(void);
-#endif
-
 #endif
 
 enum android_alarm_return_flags {
@@ -95,9 +86,6 @@ enum android_alarm_return_flags {
 	ANDROID_ALARM_ELAPSED_REALTIME_MASK =
 				1U << ANDROID_ALARM_ELAPSED_REALTIME,
 	ANDROID_ALARM_SYSTEMTIME_MASK = 1U << ANDROID_ALARM_SYSTEMTIME,
-#ifdef CONFIG_OPPO_OFFMODE_ALARM
-	ANDROID_ALARM_RTC_POWERUP_MASK = 1U << ANDROID_ALARM_RTC_POWERUP,
-#endif
 	ANDROID_ALARM_TIME_CHANGE_MASK = 1U << 16
 };
 
