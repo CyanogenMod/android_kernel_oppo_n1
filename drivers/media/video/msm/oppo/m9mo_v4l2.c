@@ -2442,9 +2442,9 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 		}
 		else
 		{
-			input_event(input, type, KEY_F1, 1);
+			input_event(input, type, KEY_FLIP_CAMERA, 1);
 			input_sync(input);
-			input_event(input, type, KEY_F1, 0);
+			input_event(input, type, KEY_FLIP_CAMERA, 0);
 		}
 		#endif
 	}
