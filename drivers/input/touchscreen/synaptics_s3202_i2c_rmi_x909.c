@@ -252,6 +252,7 @@ struct synaptics_ts_data {
 #ifdef SUPPORT_GLOVES_MODE
     atomic_t glove_mode_enable;
 #endif
+	atomic_t keypad_enable;
 };
 
 static struct synaptics_ts_data   *syna_ts_data;
@@ -1441,8 +1442,11 @@ static void synaptics_ts_work_func(struct work_struct *work)
 
 						if (f0_y > ts->max[1] - ts->snap_top - ts->virtual_key_height)
 						{
-							int pressed_vkey = get_virtual_key_button(f0_x, f0_y);
-							if (pressed_vkey == TP_VKEY_NONE)
+							if (!atomic_read(&ts->keypad_enable)) {
+								input_mt_sync(ts->input_dev);
+								continue;
+							}
+							if (get_virtual_key_button(f0_x, f0_y) == TP_VKEY_NONE)
 							{
 								input_mt_sync(ts->input_dev);
 								print_ts(TS_TRACE, KERN_ERR"[%s]:finger(%d): (x,y)=(%4d,%4d), not in available area\n",
@@ -2348,6 +2352,45 @@ static int glove_mode_enable_proc_write( struct file *filp, const char __user *b
 }
 #endif
 
+static int keypad_enable_proc_read(char *page, char **start, off_t off,
+		int count, int *eof, void *data)
+{
+	struct synaptics_ts_data *ts = data;
+	return sprintf(page, "%d\n", atomic_read(&ts->keypad_enable));
+}
+
+static int keypad_enable_proc_write(struct file *file, const char __user *buffer,
+		unsigned long count, void *data)
+{
+	struct synaptics_ts_data *ts = data;
+	char buf[10];
+	unsigned int val = 0;
+
+	if (count > 10)
+		return count;
+
+	if (copy_from_user(buf, buffer, count)) {
+		printk(KERN_INFO "%s: read proc input error.\n", __func__);
+	}
+
+	if (ts->is_tp_suspended == 0) {
+		sscanf(buf, "%d", &val);
+		val = (val == 0 ? 0:1);
+		atomic_set(&ts->keypad_enable, val);
+		if (val) {
+			set_bit(KEY_BACK, ts->input_dev->keybit);
+			set_bit(KEY_MENU, ts->input_dev->keybit);
+			set_bit(KEY_HOMEPAGE, ts->input_dev->keybit);
+		} else {
+			clear_bit(KEY_BACK, ts->input_dev->keybit);
+			clear_bit(KEY_MENU, ts->input_dev->keybit);
+			clear_bit(KEY_HOMEPAGE, ts->input_dev->keybit);
+		}
+		input_sync(ts->input_dev);
+	}
+	return count;
+}
+
 extern struct proc_dir_entry proc_root;
 static int init_synaptics_proc(struct synaptics_ts_data *ts)
 {
@@ -2413,6 +2456,12 @@ static int init_synaptics_proc(struct synaptics_ts_data *ts)
 		proc_entry->data = ts;
 	}
 #endif	
+	proc_entry = create_proc_entry("keypad_enable", 0666, prcdir);
+	if (proc_entry) {
+		proc_entry->write_proc = keypad_enable_proc_write;
+		proc_entry->read_proc = keypad_enable_proc_read;
+		proc_entry->data = ts;
+	}
 	return ret;
 }
 
@@ -2650,6 +2699,7 @@ firmware_update:
 #ifdef SUPPORT_GLOVES_MODE
     atomic_set(&ts->glove_mode_enable, 0);
 #endif
+    atomic_set(&ts->keypad_enable, 1);
 
 	// set device type as touchscreen
 	set_bit(INPUT_PROP_DIRECT, ts->input_dev->propbit);
