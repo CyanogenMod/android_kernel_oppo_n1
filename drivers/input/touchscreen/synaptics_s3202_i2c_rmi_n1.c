@@ -1511,13 +1511,33 @@ static void synaptics_ts_work_func(struct work_struct *work)
                                                         ts->gesture == Mgestrue ? "(M)" :
                                                         ts->gesture == Wgestrue ? "(W)" : "unknown");
                 
-                //report Key to notify
-                if(ts->gesture != UnkownGestrue){
-                    input_report_key(ts->input_dev, KEY_F4, 1);
-                    input_sync(ts->input_dev);
-                    input_report_key(ts->input_dev, KEY_F4, 0);
-                    input_sync(ts->input_dev);
-                }
+		//report Key to notify
+		if (ts->gesture != UnkownGestrue) {
+			switch (ts->gesture) {
+				case DouTap:
+					i = KEY_POWER;
+					break;
+				case Circle:
+					i = KEY_GESTURE_CIRCLE;
+					break;
+				case UpVee:
+					i = KEY_GESTURE_V;
+					break;
+				case LeftVee:
+					i = KEY_GESTURE_GTR;
+					break;
+				case RightVee:
+					i = KEY_GESTURE_LTR;
+					break;
+				case DouSwip:
+					i = KEY_GESTURE_SWIPE_DOWN;
+					break;
+			}
+			input_report_key(ts->input_dev, i, 1);
+			input_sync(ts->input_dev);
+			input_report_key(ts->input_dev, i, 0);
+			input_sync(ts->input_dev);
+		}
             }
 #endif
 		}
@@ -2219,7 +2239,12 @@ firmware_update:
 	set_bit(EV_KEY, ts->input_dev->evbit);
 	set_bit(EV_ABS, ts->input_dev->evbit);
 #ifdef SUPPORT_DOUBLE_TAP
-    set_bit(KEY_F4, ts->input_dev->keybit);
+	set_bit(KEY_POWER, ts->input_dev->keybit);
+	set_bit(KEY_GESTURE_CIRCLE, ts->input_dev->keybit);
+	set_bit(KEY_GESTURE_SWIPE_DOWN, ts->input_dev->keybit);
+	set_bit(KEY_GESTURE_V, ts->input_dev->keybit);
+	set_bit(KEY_GESTURE_LTR, ts->input_dev->keybit);
+	set_bit(KEY_GESTURE_GTR, ts->input_dev->keybit);
 	atomic_set(&ts->double_tap_number, 0);
 	atomic_set(&ts->double_tap_enable, 0);   
 #endif
