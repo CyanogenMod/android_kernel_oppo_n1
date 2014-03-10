@@ -6,13 +6,14 @@ enum{
     STABLE_CASE
 };
 #define m9mo_caf_debug(fmt, arg...) //printk(fmt, ##arg);
-
+#if 0
 static u_int32_t pre_wd;
 static u_int32_t pre_wb;
 static u_int32_t pre_bright;
-
+#endif
+static int32_t pre_caf_result;//hufeng add for test
 static struct oppo_interface* caf_i;
-
+#if 0
 static u_int8_t getOrder(u_int32_t wd_value)
 {
     u_int8_t order = 0;
@@ -59,6 +60,17 @@ static bool m9mo_check_if_do_caf(struct frame_info_t *frame_info, u_int32_t mode
 	{
 		case THR_CASE:
 		{
+			#if 1
+			//hufeng add for test
+			if (frame_info->caf_result == FORCE_CAF_STOP && pre_caf_result == FORCE_CAF_START)
+			{
+				m9mo_caf_debug("Now start moving \n");
+				result = true;
+				moving = true;
+				frame_info->start_moving = false;
+			}
+			break;
+			#endif
 			m9mo_caf_debug("THR_CASE-----start \r\n");
 			if (getOrder(pre_wd) == 5)
 			{
@@ -113,17 +125,31 @@ static bool m9mo_check_if_do_caf(struct frame_info_t *frame_info, u_int32_t mode
 				moving = true;
 				frame_info->start_moving = false;
 			}
-
-			/*if sport mode*/
-			if (frame_info->sport_enable)
-			{
-				result = true;
-				m9mo_caf_debug("%s: Now is in sport mode \r\n", __func__);
-			}
 			break;
         }
         case STABLE_CASE:
 		{
+
+						#if 1
+			//hufeng add for test
+			if (frame_info->caf_result == FORCE_CAF_START&& pre_caf_result == FORCE_CAF_STOP)
+			{
+				if (moving)
+				{
+					m9mo_caf_debug("moving trigger----phone stop moving, can do focus now \r\n");
+					result = true;
+					moving = false;
+				}
+				else
+				{
+					result = false;
+				}
+			}
+			else
+				result = false;
+			break;
+			#endif
+			
 			m9mo_caf_debug("STABLE_CASE-----start \r\n");
 			
 			/* detect by wd start */
@@ -173,21 +199,15 @@ static bool m9mo_check_if_do_caf(struct frame_info_t *frame_info, u_int32_t mode
 			
 			if (frame_info->caf_result == FORCE_CAF_START)
 			{
-				if (moving && frame_info->sport_enable)
+				if (moving)
 				{
 					m9mo_caf_debug("moving trigger----phone stop moving, can do focus now \r\n");
 					result = true;
-					frame_info->sport_enable = false;
 					moving = false;
 				}
 				else
 				{
 					result = false;
-					if (!frame_info->sport_enable)
-					{
-						m9mo_caf_debug("%s: sport mode back to normal mode \r\n", __func__);
-						result = true;
-					}
 				}
 			}
 			else
@@ -237,18 +257,79 @@ static bool m9mo_detect_caf_first_focus(struct frame_info_t *frame_info)
 	
 	return trigger;
 }
-
+#endif
 static void m9mo_do_caf(struct msm_sensor_ctrl_t *s_ctrl,
 	struct frame_info_t *frame_info)
 {
+	//printk("%s, caf_result = %d\n", __func__, frame_info->caf_result);
+
+#if 1
+#if 0
+	static int32_t frame_count_caf = 0;
+	static int32_t single_af_delay = 0;
+	if (frame_count_caf < 25)
+	{
+		frame_count_caf++;
+		if (frame_count_caf == 15)
+		{
+			caf_i->notify(s_ctrl, 0);
+			printk("%s, do first continuous af\n", __func__);
+		}
+		return;
+	}
+#else
+	static int32_t start_delay_frames;
+	static int32_t wd_delay_cnt;
+	static int32_t single_af_delay;
+
+		if (!frame_info->wd_valid)
+		{
+			//m9mo_caf_debug("[%s] after camera start, must do one focus for wd valid\r\n", __func__);
+			//m9mo_caf_debug("[%s] start_delay_frames[%d]\r\n", __func__, start_delay_frames);
+			if (start_delay_frames++>CAM_START_DELAY_FRAME && 
+				frame_info->focus_done)
+			{
+				caf_i->notify(s_ctrl, 0);
+				frame_info->wd_valid = true;
+				start_delay_frames = 0;
+				wd_delay_cnt = WD_VALID_DELAY_FRAME;
+			}
+			return;
+		}
+		if (frame_info->wd_valid && wd_delay_cnt-- >0)
+			return;
+#endif
+	if (frame_info->single_af)
+	{
+		m9mo_caf_debug("[%s]: Not do caf when single focus \r\n", __func__);
+		single_af_delay = SINGLE_FOCUS_DETECT_FRAME;
+		return;
+	}
+	//after single af, need delay some frames
+	if (single_af_delay>0 && !frame_info->single_af)
+	{
+		m9mo_caf_debug("After single af, delay some frames\r\n");
+		single_af_delay--;
+		pre_caf_result = frame_info->caf_result;
+		return;
+	}
+
+	if (frame_info->caf_result == FORCE_CAF_START && pre_caf_result == FORCE_CAF_STOP)
+	{
+		//printk("%s, do continue af\n", __func__);
+		caf_i->notify(s_ctrl, 0);
+	}
+
+	pre_caf_result = frame_info->caf_result;
+#else
 	static bool caf_flag = false;
 	static bool caf_start = false;
 
-	static int32_t shake_delay_frames = 0;
-	static int32_t af_delay_frames = 0;
+	static int32_t shake_delay_frames = 0; //hufeng delete for test
+	static int32_t af_delay_frames = 0; //hufeng delete for test
 	static int32_t start_delay_frames = 0;
 	static int32_t wd_delay_cnt = 0;
-	static int32_t cap_detect_time = 0;
+	static int32_t cap_detect_time = 0; //hufeng delete for test
 	static int32_t single_af_delay = 0;
 
 	bool detect_after_delay = false;
@@ -265,7 +346,8 @@ static void m9mo_do_caf(struct msm_sensor_ctrl_t *s_ctrl,
 			if (start_delay_frames++>CAM_START_DELAY_FRAME && 
 				frame_info->focus_done)
 			{
-				caf_i->notify(s_ctrl, 0);
+				if (caf_i->notify)
+					caf_i->notify(s_ctrl, 0);
 				frame_info->wd_valid = true;
 				start_delay_frames = 0;
 				wd_delay_cnt = WD_VALID_DELAY_FRAME;
@@ -372,14 +454,10 @@ static void m9mo_do_caf(struct msm_sensor_ctrl_t *s_ctrl,
 		if(shake_delay_frames > 0)
 		{
 			shake_delay_frames--;
-			if (frame_info->caf_result == FORCE_CAF_STOP)
-				caf_start = false;
-			frame_info->sport_enable = false;
 		} 
 		else if(shake_delay_frames == 0)
 		{
 			caf_start = false;
-			frame_info->sport_enable = false;
 			shake_delay_frames--;
 		}
 	}while (0);
@@ -387,7 +465,8 @@ static void m9mo_do_caf(struct msm_sensor_ctrl_t *s_ctrl,
 	pre_wd = frame_info->wave_detect;
 	pre_bright = frame_info->brightness;
 	pre_wb = frame_info->wb;
-	
+#endif
+	pre_caf_result = frame_info->caf_result;//hufeng add for test	
 	m9mo_caf_debug("[%s] Exit \r\n", __func__);
 	
 }
@@ -397,6 +476,6 @@ int32_t oppo_caf_init(struct oppo_interface *interface)
     //reg process
 	if(caf_i)
 	  caf_i->process = m9mo_do_caf;
-
+	pre_caf_result = 0;//hufeng add for test
     return 0; 
 }

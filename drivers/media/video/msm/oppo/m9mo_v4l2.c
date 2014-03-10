@@ -37,6 +37,7 @@ static struct work_struct m9mo_status_work;
 static struct workqueue_struct * m9mo_status_workqueue = NULL;
 static struct work_struct caf_work;
 static struct work_struct exif_work;
+static struct work_struct sync_work;
 static struct workqueue_struct * caf_workqueue = NULL;
 struct msm_sensor_ctrl_t* CTRL; 
 
@@ -526,7 +527,10 @@ static void ZSL_capture(struct msm_sensor_ctrl_t *s_ctrl)
 		capture_enable_out = true;
 		if (m9mo_ready_to_out)
 		{
-			ZSL_YUV_output(s_ctrl);
+		   if (caf_workqueue && g_bCapture)
+				queue_work(caf_workqueue, &sync_work);
+		   else
+			    ZSL_YUV_output(s_ctrl);
 		}
 		m9mo_output_send = false;
 		goto protect_08;
@@ -1417,6 +1421,21 @@ void exif_work_callback(struct work_struct *work)
 		m9mo_get_exposure_time(s_ctrl, &last_exif.exposure);
 		m9mo_get_auto_iso_value(s_ctrl, &last_exif.ISO);
 		m9mo_get_flash_info(s_ctrl, &last_exif.flash_fired);
+    }	
+}
+void sync_work_callback(struct work_struct *work)
+{
+	struct msm_sensor_ctrl_t* s_ctrl = CTRL;
+    if(m9mo_ready_to_out)
+    {
+		if (g_bCapture && m9mo_action[0].output)
+		{
+			m9mo_action[0].output(s_ctrl);
+		}
+		else if (g_bCapture_raw && m9mo_action[1].output)
+		{
+			m9mo_action[1].output(s_ctrl);
+		}
     }	
 }
 
@@ -2526,9 +2545,9 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 		}
 		else
 		{
-			input_event(input, type, KEY_FLIP_CAMERA, 1);
+			input_event(input, type, KEY_F1, 1);
 			input_sync(input);
-			input_event(input, type, KEY_FLIP_CAMERA, 0);
+			input_event(input, type, KEY_F1, 0);
 		}
 		#endif
 	}
@@ -3100,7 +3119,7 @@ static void m9mo_change_to_param_set_mode(struct msm_sensor_ctrl_t *s_ctrl)
 
 	m9mo_para.need_update = true;
 	camera_work = false;
-	
+	monitor_start = false;
 	m9mo_check_if_at_focusing(s_ctrl, true);
 	
 	//change to parameter setting mode
@@ -3389,6 +3408,7 @@ int32_t m9mo_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		caf_workqueue = create_singlethread_workqueue("oppo_caf");
 		INIT_WORK(&caf_work, caf_work_callback);
 		INIT_WORK(&exif_work,exif_work_callback);
+		INIT_WORK(&sync_work,sync_work_callback);
 	    //add by liubin for m9mo proc
 	    m9mo_proc_init(s_ctrl);
 		rc = msm_server_open_client(&queue_id);
@@ -3747,7 +3767,7 @@ static int32_t m9mo_do_face_ae(struct msm_sensor_ctrl_t *s_ctrl, struct cord *fd
 	//start Face AE
 	E_cmd[2] = 0x02;
 	E_cmd[3] = 0x46;
-	E_cmd[4] = 0x01;
+	E_cmd[4] = 0x02;
 	msm_camera_i2c_txdata(s_ctrl->sensor_i2c_client,E_cmd,5);
 
 	//check if Face AE is starting
@@ -3757,7 +3777,7 @@ static int32_t m9mo_do_face_ae(struct msm_sensor_ctrl_t *s_ctrl, struct cord *fd
 	resp[3] = 0x46;
 	resp[4] = 0x01;
 	msm_vendor_i2c_rxdata(s_ctrl->sensor_i2c_client,resp,5,2);
-	if (0x01 == resp[1])
+	if (0x02 == resp[1])
 	{
 		m9mo_debug("Face AE is starting \r\n");
 		g_FrameInfo.ae_mode = M9MO_AE_MODE_FACE;
@@ -3770,8 +3790,26 @@ static int32_t m9mo_do_face_ae(struct msm_sensor_ctrl_t *s_ctrl, struct cord *fd
 
     if(fd_area->mode)
     {
-	    msleep(50);
+	    //msleep(50);
+        //set location of Face AE area
+		E_cmd[2] = 0x02;
+		E_cmd[3] = 0x42;
+		E_cmd[4] = fd_area->x;
+		msm_camera_i2c_txdata(s_ctrl->sensor_i2c_client,E_cmd,5);
+		E_cmd[2] = 0x02;
+		E_cmd[3] = 0x43;
+		E_cmd[4] = fd_area->y + fd_area->dy/5;
+		msm_camera_i2c_txdata(s_ctrl->sensor_i2c_client,E_cmd,5);
 
+		//set frame size of Face AE area
+		E_cmd[2] = 0x02;
+		E_cmd[3] = 0x44;
+		E_cmd[4] = fd_area->dx*5/7;
+		msm_camera_i2c_txdata(s_ctrl->sensor_i2c_client,E_cmd,5);
+		E_cmd[2] = 0x02;
+		E_cmd[3] = 0x45;
+		E_cmd[4] = fd_area->dy*5/7;
+		msm_camera_i2c_txdata(s_ctrl->sensor_i2c_client,E_cmd,5);
 		//set focus range
 		E_cmd[2] = 0x0A;
 		E_cmd[3] = 0x49;
@@ -4399,7 +4437,7 @@ int32_t m9mo_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 					if((caf_workqueue) && (!g_bCapture))
 					{
 						queue_work(caf_workqueue, &caf_work);
-						if (!camera_work && frame_cnt++>5)
+						if (!camera_work && frame_cnt++>5 && monitor_start)
 						{
 							queue_work(m9mo_status_workqueue, &m9mo_status_work);
 							camera_work = true;
@@ -4438,7 +4476,7 @@ int32_t m9mo_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			if((caf_workqueue) && (!g_bCapture))
 			{
 				queue_work(caf_workqueue, &caf_work);
-				if (!camera_work && frame_cnt++>5)
+				if (!camera_work && frame_cnt++>5 && monitor_start)
 			   	{
 			   	 	queue_work(m9mo_status_workqueue, &m9mo_status_work);
 				 	camera_work = true;
