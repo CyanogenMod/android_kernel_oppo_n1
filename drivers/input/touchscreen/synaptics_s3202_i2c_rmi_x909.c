@@ -54,6 +54,8 @@
 /******************* tp function switch **************************/
 #define TP_UPDATE_FIRMWARE  1
 #define SUPPORT_DOUBLE_TAP  1
+//#define SUPPORT_GLOVES_MODE  //ranfei modify for PVT
+#define SUPPORT_REPORT_COORDINATE
 /*****************************************************************/
 
 #include "synaptics_firmware_truly.h"
@@ -116,7 +118,7 @@ extern int display_rle_file(char *filename);
 #define F11_CTRL_DELTA_Y_THRESH	(F11_CTRL_BASE_ADDR + 3)
 #define F11_CTRL_MAX_X			(F11_CTRL_BASE_ADDR + 6)
 #define F11_CTRL_MAX_Y			(F11_CTRL_BASE_ADDR + 8)
-#define F11_CTRL_32_00		(F11_CTRL_BASE_ADDR + 15)
+#define F11_CTRL_32_00		    (F11_CTRL_BASE_ADDR + 15)
 #define F11_CTRL_32_01			(F11_CTRL_BASE_ADDR + 16)
 #define F11_CTRL_58			    (F11_CTRL_BASE_ADDR + 41)
 #define F11_2D_CTRL92_00_00     (F11_CTRL_BASE_ADDR + 45)
@@ -144,6 +146,10 @@ extern int display_rle_file(char *filename);
 #ifdef SUPPORT_GLOVES_MODE
 #define F51_CUSTOM_CTRL03  0x400
 #endif 
+
+#ifdef SUPPORT_REPORT_COORDINATE
+#define F51_CUSTOM_DATA02 0x400
+#endif
 /*****************************************************************/
 /*************** log definition **********************************/
 #define TS_ERROR   1
@@ -199,6 +205,14 @@ struct synaptics_rmi4_fn_desc {
 	unsigned char	fn_number;
 };
 
+#ifdef SUPPORT_REPORT_COORDINATE
+struct Coordinate {
+    uint32_t x;
+    uint32_t y;
+};
+
+#endif
+
 struct synaptics_ts_data {
 	uint16_t addr;
 	struct i2c_client *client;
@@ -248,6 +262,15 @@ struct synaptics_ts_data {
 	int i2c_ready;
 	struct wake_lock        double_wake_lock;
 	struct early_suspend early_suspend_power;
+#ifdef SUPPORT_REPORT_COORDINATE
+    struct Coordinate Point_start;
+    struct Coordinate Point_end;
+    struct Coordinate Point_1st;
+    struct Coordinate Point_2nd;
+    struct Coordinate Point_3rd;
+    struct Coordinate Point_4th;
+    uint32_t  clockwise;
+#endif
 #endif
 #ifdef SUPPORT_GLOVES_MODE
     atomic_t glove_mode_enable;
@@ -274,8 +297,9 @@ static int synaptics_i2c_byte_write(struct synaptics_ts_data *ts,
 static int synaptics_init_panel(struct synaptics_ts_data *ts);
 static int synaptics_set_int_mask(struct synaptics_ts_data *ts, int enable);
 static int synaptics_set_report_mode(struct synaptics_ts_data *ts, uint8_t set_mode);
-
-
+/*OPPO yuyi add begin for forbidding N1 button*/
+bool gpio_button_confirm = 0;
+/*OPPO yuyi add end*/
 /***** For device sysfs attributs interfaces begin ********/
 static int syna_test_max_err_count = 10;
 static inline void wait_test_cmd_finished(void)
@@ -992,7 +1016,7 @@ static void synaptics_set_fn_address(struct synaptics_rmi4_fn_desc* desc,
 	 	desc->intr_src_count  = pdt_data[4];
 	 	desc->fn_number       = pdt_data[5];
 
-		print_ts(TS_DEBUG, KERN_ERR "[SYNAPTICS] Find fn%02x: query:%04x, cmd:%04x, ctrl:%04x, data:%04x \n",
+		print_ts(TS_INFO, KERN_ERR "[SYNAPTICS] Find fn%02x: query:%04x, cmd:%04x, ctrl:%04x, data:%04x \n",
 				desc->fn_number, desc->query_base_addr, desc->cmd_base_addr,
 				desc->ctrl_base_addr,  desc->data_base_addr);
 	}
@@ -1167,7 +1191,7 @@ static int synaptics_init_panel(struct synaptics_ts_data *ts)
 	ts->current_page = MASK_16BIT;
 	ts->need_hardware_reset = 0;
 
-	ret = synaptics_i2c_byte_write(ts, F01_CTRL_DEVICE_CONTROL, 0x80);//huanggd for reduce tp current
+	ret = synaptics_i2c_byte_write(ts, F01_CTRL_DEVICE_CONTROL, 0x80); //modify to sleep mode ranfei
 
 	if (ret < 0) {
 		dev_err(&ts->client->dev, "%s: i2c_smbus_write_byte_data failed\n", __func__);
@@ -1315,6 +1339,9 @@ static void synaptics_ts_work_func(struct work_struct *work)
 #if SUPPORT_DOUBLE_TAP	
 	unsigned char double_tap = 0;
     unsigned char state[7] = {0};
+#ifdef SUPPORT_REPORT_COORDINATE
+    unsigned char point[25] = {0};
+#endif
 #endif
 
 	//printk("[SYNAPTICS]%s enter.\n", __func__);
@@ -1492,6 +1519,22 @@ static void synaptics_ts_work_func(struct work_struct *work)
 		        print_ts(TS_DEBUG, KERN_INFO "%d, [read reg: 0x%x] get LPWG Status value = 0x%x \n", __LINE__, F11_DATA_LPWG_STATUS, double_tap);
                 synaptics_i2c_block_read(ts, F11_DATA_LPWG_STATUS + 1, 7, state);
 			    print_ts(TS_DEBUG, KERN_INFO "%d, [read reg: 0x%x] get LPWG Status value = 0x%x \n", __LINE__, F11_DATA_LPWG_STATUS + 1, state[6]);
+#ifdef SUPPORT_REPORT_COORDINATE
+                synaptics_i2c_block_read(ts, F51_CUSTOM_DATA02, 25, point);
+                ts->Point_start.x = (point[0] | (point[1] << 8)) * 1080 / (ts->max[0] - ts->snap_left - ts->snap_right);
+                ts->Point_start.y = (point[2] | (point[3] << 8)) * 1920 / (ts->max[1] - ts->snap_top - ts->virtual_key_height);
+                ts->Point_end.x   = (point[4] | (point[5] << 8)) * 1080 / (ts->max[0] - ts->snap_left - ts->snap_right);
+                ts->Point_end.y   = (point[6] | (point[7] << 8)) * 1920 / (ts->max[1] - ts->snap_top - ts->virtual_key_height);
+                ts->Point_1st.x   = (point[8] | (point[9] << 8)) * 1080 / (ts->max[0] - ts->snap_left - ts->snap_right);
+                ts->Point_1st.y   = (point[10] | (point[11] << 8)) * 1920 / (ts->max[1] - ts->snap_top - ts->virtual_key_height);
+                ts->Point_2nd.x   = (point[12] | (point[13] << 8)) * 1080 / (ts->max[0] - ts->snap_left - ts->snap_right);
+                ts->Point_2nd.y   = (point[14] | (point[15] << 8)) * 1920 / (ts->max[1] - ts->snap_top - ts->virtual_key_height);
+                ts->Point_3rd.x   = (point[16] | (point[17] << 8)) * 1080 / (ts->max[0] - ts->snap_left - ts->snap_right);
+                ts->Point_3rd.y   = (point[18] | (point[19] << 8)) * 1920 / (ts->max[1] - ts->snap_top - ts->virtual_key_height);
+                ts->Point_4th.x   = (point[20] | (point[21] << 8)) * 1080 / (ts->max[0] - ts->snap_left - ts->snap_right);
+                ts->Point_4th.y   = (point[22] | (point[23] << 8)) * 1920 / (ts->max[1] - ts->snap_top - ts->virtual_key_height);
+                ts->clockwise     = (point[24] & 0x10) ? 1 : 0;
+#endif
             }
 
 			if (ts->is_tp_suspended && 1 == atomic_read(&ts->double_tap_enable))
@@ -2308,6 +2351,20 @@ static int music_enable_proc_write( struct file *filp, const char __user *buff,
 
 	return len;
 }
+
+#ifdef SUPPORT_REPORT_COORDINATE
+static int coordinate_proc_read(char *page, char **start, off_t off,
+			  int count, int *eof, void *data)
+{
+	struct synaptics_ts_data *ts = data;
+	
+	return sprintf(page, "%d:%d,%d:%d,%d:%d,%d:%d,%d:%d,%d:%d,%d\n", 
+                   ts->Point_start.x, ts->Point_start.y, ts->Point_end.x, ts->Point_end.y,
+                   ts->Point_1st.x, ts->Point_1st.y, ts->Point_2nd.x, ts->Point_2nd.y,
+                   ts->Point_3rd.x, ts->Point_3rd.y, ts->Point_4th.x, ts->Point_4th.y,
+                   ts->clockwise);
+}
+#endif
 #endif
 
 #ifdef SUPPORT_GLOVES_MODE
@@ -2447,6 +2504,13 @@ static int init_synaptics_proc(struct synaptics_ts_data *ts)
 		proc_entry->read_proc = music_enable_proc_read;
 		proc_entry->data = ts;
 	}
+#ifdef SUPPORT_REPORT_COORDINATE
+    proc_entry = create_proc_entry("coordinate", 0444, prcdir);
+	if (proc_entry) {
+		proc_entry->read_proc = coordinate_proc_read;
+		proc_entry->data = ts;
+	}
+#endif
 #endif	
 #ifdef SUPPORT_GLOVES_MODE
 	proc_entry = create_proc_entry("glove_mode_enable", 0666, prcdir);
@@ -2475,7 +2539,7 @@ static int synaptics_ts_probe(
 	struct synaptics_i2c_rmi_platform_data *pdata;
 	unsigned long irqflags;
 	int force_update;
-	print_ts(TS_INFO, "huqiao_synaptics_ts_probe\n");
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		print_ts(TS_ERROR, KERN_ERR "synaptics_ts_probe: need I2C_FUNC_I2C\n");
 		ret = -ENODEV;
@@ -2547,19 +2611,16 @@ firmware_update:
 		const unsigned char* fw_update_data = NULL;
 		if (ts->vendor_id == TP_VENDOR_TRULY)
 		{
-			print_ts(TS_INFO, "huqiao_TP_VENDOR_TRULY\n");
 			fw_update_version = FIRMWARE_TRULY_VERSION;
 			fw_update_data = Syna_Firmware_Data_Truly;
 		}
 		else if (ts->vendor_id == TP_VENDOR_WINTEK)
 		{
-			print_ts(TS_INFO, "huqiao_TP_TP_VENDOR_WINTEK\n");
 			fw_update_version = FIRMWARE_WINTEK_VERSION;
 			fw_update_data = Syna_Firmware_Data_Wintek;
 		}
 		else if (ts->vendor_id == TP_VENDOR_TPK)
 		{
-			print_ts(TS_INFO, "huqiao_TP_VENDOR_TPK\n");
 			fw_update_version = FIRMWARE_TPK_VERSION;
 			fw_update_data = Syna_Firmware_Data_TPK;
 		}
@@ -2660,7 +2721,7 @@ firmware_update:
 		ts->snap_top = 0;
 		ts->snap_left = 0;
 		// TP width:62.92,  LCD width:61.88
-		ts->snap_right = max_x * 104/6292;
+		ts->snap_right = max_x * 104/6292;  //104
 	}
 
 	fuzz_x = fuzz_x * max_x / 0x10000;
@@ -2686,15 +2747,12 @@ firmware_update:
     set_bit(KEY_GESTURE_LTR, ts->input_dev->keybit);
     set_bit(KEY_GESTURE_GTR, ts->input_dev->keybit);
 	atomic_set(&ts->double_tap_number, 0);
-    /*ranfei modify for N1 发布会临时打开这四个开关*/
+    /*ranfei modify for N1 发布会临时打开这四个开关,在工厂模式里面不打开*/
+    /*ranfei 设置菜单会设置，内核都默认关闭*/
 	atomic_set(&ts->double_tap_enable, 0);   
-//#ifdef VENDER_EDIT
-//lile@EXP.driver.touchscreen 2013-11-20 modify for set default value 0
     atomic_set(&ts->flashlight_enable, 0);
     atomic_set(&ts->camera_enable, 0);
     atomic_set(&ts->music_enable, 0);
-//lile@EXP.driver.touchscreen 2013-11-20 end
-//#endif VENDER_EDIT
 #endif
 #ifdef SUPPORT_GLOVES_MODE
     atomic_set(&ts->glove_mode_enable, 0);
@@ -2763,7 +2821,7 @@ firmware_update:
 
 	print_ts(TS_INFO, KERN_INFO "synaptics_ts_probe: Start touchscreen %s in %s mode\n", ts->input_dev->name, ts->use_irq ? "interrupt" : "polling");
 
-	syna_log_level = TS_DEBUG;
+	syna_log_level = TS_WARNING;
 	return 0;
 
 err_input_register_device_failed:
@@ -2901,6 +2959,12 @@ static int synaptics_ts_resume(struct i2c_client *client)
 		enable_irq(client->irq);
 /* OPPO 2013-05-02 huanggd Add end*/	
 		synaptics_set_int_mask(ts, 1);
+/* OPPO 2013-10-15 ranfei Add begin for 在唤醒的时候上报一次up事件 */
+#ifdef CONFIG_VENDOR_EDIT
+        input_mt_sync(ts->input_dev);
+        input_sync(ts->input_dev);
+#endif
+/* OPPO 2013-10-15 ranfei Add end */
 		up(&synaptics_sem);
 		return 0;
 	}
@@ -2933,14 +2997,24 @@ static int synaptics_ts_resume(struct i2c_client *client)
 	else
 		synaptics_set_int_mask(ts, 1); /* enable abs int */
 
+/* OPPO 2013-10-15 ranfei Add begin for 在唤醒的时候上报一次up事件 */
+#ifdef CONFIG_VENDOR_EDIT
+    input_mt_sync(ts->input_dev);
+    input_sync(ts->input_dev);
+#endif
+/* OPPO 2013-10-15 ranfei Add end */
 	up(&synaptics_sem);
 	return 0;
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
+
 static void synaptics_ts_early_suspend(struct early_suspend *h)
 {
 	struct synaptics_ts_data *ts;
+/*OPPO yuyi add begin for forbidding N1 button*/
+	gpio_button_confirm = 1;
+/*OPPO yuyi add end*/
 	ts = container_of(h, struct synaptics_ts_data, early_suspend);
 	synaptics_ts_suspend(ts->client, PMSG_SUSPEND);
 }
@@ -2948,9 +3022,12 @@ static void synaptics_ts_early_suspend(struct early_suspend *h)
 static void synaptics_ts_late_resume(struct early_suspend *h)
 {
 	struct synaptics_ts_data *ts;
+
 	ts = container_of(h, struct synaptics_ts_data, early_suspend);
 	synaptics_ts_resume(ts->client);
-}
+/*OPPO yuyi add begin for forbidding N1 button*/
+	gpio_button_confirm = 0;
+/*OPPO yuyi add end*/ }
 /* OPPO 2013-05-02 huanggd Add begin for double tap*/	
 #if SUPPORT_DOUBLE_TAP
 static void synaptics_ts_late_resume_power(struct early_suspend *h)
