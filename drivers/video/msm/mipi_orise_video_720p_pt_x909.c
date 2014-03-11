@@ -172,7 +172,7 @@ static int __init mipi_video_orise_720p_pt_init(void)
 		pinfo.mipi.hbp_power_stop = FALSE;
 		pinfo.mipi.hsa_power_stop = FALSE;		//unrelated
 		pinfo.mipi.eof_bllp_power_stop = FALSE;
-		pinfo.mipi.bllp_power_stop = FALSE;
+		pinfo.mipi.bllp_power_stop = TRUE;
 
 		pinfo.mipi.traffic_mode = DSI_BURST_MODE;	//or DSI_NON_BURST_SYNCH_EVENT
 		pinfo.mipi.dst_format = DSI_VIDEO_DST_FORMAT_RGB888;
