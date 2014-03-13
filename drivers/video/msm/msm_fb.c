@@ -351,14 +351,7 @@ static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
 			MAX_BACKLIGHT_BRIGHTNESS - 1) /
 			(MAX_BACKLIGHT_BRIGHTNESS - 1) / 2;
 #else
-		if(get_pcb_version() >= PCB_VERSION_EVT_N1)
-		{
-			bl_lvl = value; 
-		}
-		else
-		{
-			bl_lvl = get_bright_level(value);
-		}
+		bl_lvl = get_bright_level(value);
 #endif
 /* OPPO 2013-03-22 zhengzk Add end */
 
