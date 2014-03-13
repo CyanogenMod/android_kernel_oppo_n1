@@ -476,13 +476,12 @@ static void mipi_orise_set_backlight(struct msm_fb_data_type *mfd)
 {
 	int bl_level;
 	bl_level = mfd->bl_level;
-	//printk("backlight=%d\n", bl_level);
-	if(bl_level >=0 && bl_level < 128)
-	{
-		lm3528_bkl_control(bl_level);
-		globle_bkl = bl_level;
-	}
-	
+
+	if (bl_level >= 0)
+		if (bl_level > 127)
+			bl_level = 127;
+	lm3528_bkl_control(bl_level);
+	globle_bkl = bl_level;
 }
 
 #define LCD_TEST_RESET	1
