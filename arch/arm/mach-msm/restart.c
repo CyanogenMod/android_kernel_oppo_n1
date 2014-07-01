@@ -35,6 +35,12 @@
 #include "msm_watchdog.h"
 #include "timer.h"
 
+#ifdef CONFIG_MACH_OPPO
+#include <linux/gpio.h>
+
+#define MDM_DRV_AP2MDM_PMIC_PWR_EN_GPIO 27
+#endif
+
 #define WDT0_RST	0x38
 #define WDT0_EN		0x40
 #define WDT0_BARK_TIME	0x4C
@@ -146,6 +152,10 @@ static void __msm_power_off(int lower_pshold)
 	pm8xxx_reset_pwr_off(0);
 
 	if (lower_pshold) {
+#ifdef CONFIG_MACH_OPPO
+		gpio_direction_output(MDM_DRV_AP2MDM_PMIC_PWR_EN_GPIO, 0);
+		mdelay(500);
+#endif
 		__raw_writel(0, PSHOLD_CTL_SU);
 		mdelay(10000);
 		printk(KERN_ERR "Powering off has failed\n");
