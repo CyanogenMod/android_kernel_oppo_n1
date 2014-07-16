@@ -529,7 +529,7 @@ static void bdi_remove_from_list(struct backing_dev_info *bdi)
 	list_del_rcu(&bdi->bdi_list);
 	spin_unlock_bh(&bdi_lock);
 
-	synchronize_rcu_expedited();
+	synchronize_rcu();
 }
 
 int bdi_register(struct backing_dev_info *bdi, struct device *parent,
