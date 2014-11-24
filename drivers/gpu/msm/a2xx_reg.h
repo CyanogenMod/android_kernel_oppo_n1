@@ -424,6 +424,7 @@ union reg_cp_rb_cntl {
 #define REG_A225_GRAS_UCP0X              0x2340
 #define REG_A225_GRAS_UCP5W              0x2357
 #define REG_A225_GRAS_UCP_ENABLED        0x2360
+#define REG_VSC_BINNING_ENABLE           0x0C00
 
 /* Debug registers used by snapshot */
 #define REG_PA_SU_DEBUG_CNTL            0x0C80

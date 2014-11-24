@@ -57,7 +57,7 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb,
 				struct adreno_context *context,
 				unsigned int numcmds, int wptr_ahead)
 {
-	int nopcount;
+	int nopcount, i;
 	unsigned int freecmds;
 	unsigned int *cmds;
 	uint cmds_gpu;
@@ -77,6 +77,13 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb,
 		cmds_gpu = rb->buffer_desc.gpuaddr + sizeof(uint)*rb->wptr;
 
 		GSL_RB_WRITE(cmds, cmds_gpu, cp_nop_packet(nopcount));
+
+		/*
+		 * Fill remaining ring buffer data with KGSL_NOP_DATA_FILLER
+		 * to avoid misinterpretation in recovery extraction logic.
+		 */
+		for (i = 0; i < nopcount; i++)
+			GSL_RB_WRITE(cmds, cmds_gpu, KGSL_NOP_DATA_FILLER);
 
 		/* Make sure that rptr is not 0 before submitting
 		 * commands at the end of ringbuffer. We do not
