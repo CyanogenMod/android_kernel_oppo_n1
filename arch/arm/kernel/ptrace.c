@@ -909,7 +909,7 @@ long arch_ptrace(struct task_struct *child, long request,
 
 asmlinkage int syscall_trace(int why, struct pt_regs *regs, int scno)
 {
-	unsigned long ip;
+	unsigned long ip = 0;
 
 	if (why)
 		audit_syscall_exit(regs);
